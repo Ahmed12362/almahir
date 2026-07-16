@@ -32,14 +32,14 @@ public class JwtServiceImpl implements JwtService {
                 .map(GrantedAuthority::getAuthority)
                 .toList();
         long now = System.currentTimeMillis();
-        AuthUser authUser = (AuthUser) userDetails;
+//        AuthUser authUser = (AuthUser) userDetails;
         return Jwts.builder()
                 .setSubject(userDetails.getUsername())
                 .setIssuedAt(new Date(now))
                 .setExpiration(new Date(now + accessTokenExpiration))
                 .signWith(getKey())
                 .claim("roles", roles)
-                .claim("userId", authUser.getUser().getId())
+//                .claim("userId", authUser.getUser().getId())
                 .claim("type", "access")
                 .compact();
     }
@@ -61,7 +61,7 @@ public class JwtServiceImpl implements JwtService {
 
     @Override
     public Date getExpiration(String token) {
-        return null;
+        return extractAllClaims(token).getExpiration();
     }
 
     @Override

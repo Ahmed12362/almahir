@@ -27,10 +27,17 @@ public class RefreshToken {
     @Column(nullable = false)
     private Instant expiresAt;
 
-    @Column
-    private boolean revoked;
+    @Column(nullable = false)
+    private boolean revoked = false;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
+
+    @PrePersist
+    public void prePersist(){
+
+        createdAt = Instant.now();
+
+    }
 }

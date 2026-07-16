@@ -6,7 +6,7 @@ import com.almahir.iti.model.User;
 public interface RefreshTokenService {
     RefreshToken create(User user);
 
-    RefreshToken verify(String token);
+    RefreshToken validate(String token);
 
     void revoke(String token);
 
