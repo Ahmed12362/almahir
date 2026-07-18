@@ -30,6 +30,9 @@ public class User {
     private String email;
     private String phoneNumber;
 
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private ForgotPassword forgotPassword;
+
     @ManyToMany(cascade = {CascadeType.MERGE, CascadeType.PERSIST, CascadeType.DETACH, CascadeType.REFRESH}
             , fetch = FetchType.EAGER)
     @JoinTable(
