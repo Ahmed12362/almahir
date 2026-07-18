@@ -43,7 +43,7 @@ public class ForgotPasswordController {
 
     // Reset password
     @PostMapping("/change-password/{email}")
-    public ResponseEntity<ApiResponse<Void>> resetPassword(@PathVariable String email,
+    public ResponseEntity<ApiResponse<Void>> changePassword(@PathVariable String email,
                                                            @RequestBody ChangePasswordRequest changePasswordRequest) {
         User user = userService.getUserByEmail(email);
 
