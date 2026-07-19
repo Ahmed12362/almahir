@@ -23,12 +23,15 @@ public class User {
     private String firstName;
     @Column(nullable = false)
     private String lastName;
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String password;
 
     @Column(unique = true, nullable = false)
     private String email;
     private String phoneNumber;
+    @Column(unique = true)
+    private String googleId;
+    private String provider;
 
     @ManyToMany(cascade = {CascadeType.MERGE, CascadeType.PERSIST, CascadeType.DETACH, CascadeType.REFRESH}
             , fetch = FetchType.EAGER)
@@ -45,5 +48,19 @@ public class User {
             orphanRemoval = true
     )
     private Set<RefreshToken> refreshTokens = new HashSet<>();
+
+    @PrePersist
+    void prePersist() {
+        if (provider == null || provider.isBlank()) {
+            provider = "LOCAL";
+        }
+    }
+
+    @PreUpdate
+    void preUpdate() {
+        if (provider == null || provider.isBlank()) {
+            provider = "LOCAL";
+        }
+    }
 
 }
