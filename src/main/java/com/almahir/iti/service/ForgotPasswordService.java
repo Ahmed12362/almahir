@@ -4,7 +4,7 @@ import com.almahir.iti.dto.request.ChangePasswordRequest;
 import com.almahir.iti.model.User;
 
 public interface ForgotPasswordService {
-    void generateAndSendOtp(User user);
-    void verifyOtp(Integer otp, User user);
+    void generateAndSendOtp(String email);
+    void verifyOtp(Integer otp, String email);
     void changePassword(User user, ChangePasswordRequest changePasswordRequest);
 }

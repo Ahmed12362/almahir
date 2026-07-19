@@ -1,32 +1,27 @@
 package com.almahir.iti.model;
 
-import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.redis.core.RedisHash;
+import org.springframework.data.redis.core.TimeToLive;
+import org.springframework.data.redis.core.index.Indexed;
 
-import java.util.Date;
-
-@Entity
-@Table(name = "forgot_password")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@RedisHash(value = "forgot_password")
 public class ForgotPassword {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
 
-    @Column(nullable = false)
+    @Id
+    private String email;
+
+    @Indexed
     private Integer otp;
 
-    @Column(name = "is_verified", nullable = false)
     private boolean isVerified = false;
 
-    @Column(name = "expiry_time", nullable = false)
-    private Date expiryTime;
-
-    @OneToOne
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @TimeToLive
+    private long timeToLive = 300;
 }

@@ -21,8 +21,10 @@ public class EmailService {
         message.setSubject(mailBody.subject());
         message.setText(mailBody.text());
 
-        javaMailSender.send(message);
+        try {
+            javaMailSender.send(message);
+        } catch (Exception e) {
+            System.out.println("Error sending email: " + e.getMessage());
+        }
     }
-
-    //
 }
