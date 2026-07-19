@@ -1,21 +1,18 @@
 package com.almahir.iti.controller;
 
+import com.almahir.iti.dto.request.GoogleAuthRequest;
 import com.almahir.iti.dto.request.LoginRequest;
 import com.almahir.iti.dto.request.RefreshTokenRequest;
 import com.almahir.iti.dto.request.RegisterRequest;
 import com.almahir.iti.dto.response.ApiResponse;
 import com.almahir.iti.dto.response.AuthResponse;
 import com.almahir.iti.dto.response.UserResponse;
-import com.almahir.iti.model.User;
 import com.almahir.iti.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 
@@ -52,6 +49,29 @@ public class AuthController {
                 )
         );
     }
+
+    @PostMapping("/google")
+    public ResponseEntity<ApiResponse<AuthResponse>> googleLogin(
+            @Valid @RequestBody GoogleAuthRequest request) {
+
+        AuthResponse response = authService.loginWithGoogle(request);
+
+        HttpStatus status = response.isNewUser()
+                ? HttpStatus.CREATED
+                : HttpStatus.OK;
+
+        String message = response.isNewUser()
+                ? "New user account created and authenticated via Google."
+                : "Google authentication successful.";
+
+        return ResponseEntity.status(status)
+                .body(ApiResponse.success(
+                        message,
+                        response
+                )
+        );
+    }
+
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<AuthResponse>> refresh(
 
