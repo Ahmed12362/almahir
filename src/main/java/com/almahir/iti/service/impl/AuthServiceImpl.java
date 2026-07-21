@@ -284,8 +284,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private void validateRegistrationRole(RoleName roleName) {
-        if (roleName != RoleName.USER
-                && roleName != RoleName.SHEIKH
+        if (roleName != RoleName.SHEIKH
                 && roleName != RoleName.STUDENT) {
             throw new IllegalArgumentException("Unsupported registration role: " + roleName);
         }
