@@ -11,25 +11,37 @@ import com.almahir.iti.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.time.Instant;
 
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
+//@CrossOrigin("*")
 public class AuthController {
     private final AuthService authService;
 
-    @PostMapping("/register")
+    @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<UserResponse>> register(
-            @Valid @RequestBody RegisterRequest request) {
+            @RequestPart("data") @Valid RegisterRequest request,
+            @RequestPart(value = "file", required = false) MultipartFile file
+    ) {
 
-        UserResponse userResponse =
-                authService.register(request);
+        UserResponse userResponse = authService.register(request, file);
 
-        return ResponseEntity.status(HttpStatus.CREATED)
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentContextPath()
+                .path("/api/users/{id}")
+                .buildAndExpand(userResponse.id())
+                .toUri();
+
+        return ResponseEntity.created(location)
                 .body(new ApiResponse<>(
                         true,
                         "Registration successful",
@@ -37,6 +49,7 @@ public class AuthController {
                         Instant.now()
                 ));
     }
+
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(
@@ -66,10 +79,10 @@ public class AuthController {
 
         return ResponseEntity.status(status)
                 .body(ApiResponse.success(
-                        message,
-                        response
-                )
-        );
+                                message,
+                                response
+                        )
+                );
     }
 
     @PostMapping("/refresh")
@@ -78,7 +91,7 @@ public class AuthController {
             @Valid
             @RequestBody RefreshTokenRequest request
 
-    ){
+    ) {
 
         AuthResponse response =
                 authService.refresh(request);
@@ -91,13 +104,14 @@ public class AuthController {
         );
 
     }
+
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
 
             @Valid
             @RequestBody RefreshTokenRequest request
 
-    ){
+    ) {
 
         authService.logout(request);
 

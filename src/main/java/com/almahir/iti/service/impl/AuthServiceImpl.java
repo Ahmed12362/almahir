@@ -3,7 +3,8 @@ package com.almahir.iti.service.impl;
 import com.almahir.iti.dto.request.GoogleAuthRequest;
 import com.almahir.iti.dto.response.UserResponse;
 import com.almahir.iti.exception.ResourceNotFound;
-import com.almahir.iti.service.AuthService;
+import com.almahir.iti.mapper.UserMapper;
+import com.almahir.iti.service.*;
 import com.almahir.iti.dto.request.LoginRequest;
 import com.almahir.iti.dto.request.RefreshTokenRequest;
 import com.almahir.iti.dto.request.RegisterRequest;
@@ -16,15 +17,13 @@ import com.almahir.iti.model.RoleName;
 import com.almahir.iti.model.User;
 import com.almahir.iti.repository.RoleRepository;
 import com.almahir.iti.repository.UserRepository;
-import com.almahir.iti.service.GoogleTokenVerifierService;
-import com.almahir.iti.service.JwtService;
-import com.almahir.iti.service.RefreshTokenService;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -42,6 +41,10 @@ public class AuthServiceImpl implements AuthService {
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
     private final GoogleTokenVerifierService googleTokenVerifierService;
+
+    private final CloudinaryService cloudinaryService;
+
+    private final UserMapper userMapper;
 
     @Override
     public AuthResponse login(LoginRequest request) {
@@ -65,7 +68,7 @@ public class AuthServiceImpl implements AuthService {
                 accessToken,
                 refreshToken.getToken(),
                 false,
-                toUserResponse(authUser.getUser())
+                userMapper.toUserResponse(authUser.getUser())
         );
     }
 
@@ -110,12 +113,12 @@ public class AuthServiceImpl implements AuthService {
                 accessToken,
                 refreshToken.getToken(),
                 isNewUser.get(),
-                toUserResponse(user)
+                userMapper.toUserResponse(user)
         );
     }
 
     @Override
-    public UserResponse register(RegisterRequest request) {
+    public UserResponse register(RegisterRequest request, MultipartFile file) {
 
         if (userRepository.findByEmail(request.email()).isPresent()) {
             throw new AlreadyExists(request.email());
@@ -123,7 +126,12 @@ public class AuthServiceImpl implements AuthService {
 
         Role userRole = roleRepository.findByName(RoleName.USER)
                 .orElseThrow(() ->
-                        new ResourceNotFound(RoleName.USER.toString()));
+                        new ResourceNotFound("Role Not Found: " + RoleName.USER));
+
+        String imageUrl = null;
+        if (file != null && !file.isEmpty()) {
+            imageUrl = cloudinaryService.uploadFile(file, "almahir/profile_pictures");
+        }
 
         User user = User.builder()
                 .firstName(request.firstName())
@@ -132,21 +140,13 @@ public class AuthServiceImpl implements AuthService {
                 .email(request.email())
                 .phoneNumber(request.phoneNumber())
                 .password(passwordEncoder.encode(request.password()))
+                .profilePictureUrl(imageUrl)
                 .provider("LOCAL")
                 .roles(Set.of(userRole))
                 .build();
 
-
-        //        AuthUser authUser = new AuthUser(savedUser);
-//
-//        String accessToken =
-//                jwtService.generateAccessToken(authUser);
-//
-//        RefreshToken refreshToken =
-//                refreshTokenService.create(savedUser);
-
         User savedUser = userRepository.save(user);
-        return toUserResponse(savedUser);
+        return userMapper.toUserResponse(savedUser);
     }
 
     @Override
@@ -167,7 +167,7 @@ public class AuthServiceImpl implements AuthService {
                 accessToken,
                 refreshToken.getToken(),
                 false,
-                toUserResponse(refreshToken.getUser())
+                userMapper.toUserResponse(refreshToken.getUser())
         );
     }
 
@@ -189,7 +189,7 @@ public class AuthServiceImpl implements AuthService {
     ) {
         Role userRole = roleRepository.findByName(RoleName.USER)
                 .orElseThrow(() ->
-                        new ResourceNotFound(RoleName.USER.toString()));
+                        new ResourceNotFound("Role Not Found:" + RoleName.USER.toString()));
 
         String resolvedFirstName = hasText(firstName) ? firstName : resolveFirstName(fullName, email);
         String resolvedLastName = hasText(lastName) ? lastName : resolveLastName(fullName);
@@ -205,20 +205,6 @@ public class AuthServiceImpl implements AuthService {
                 .build();
 
         return userRepository.save(user);
-    }
-
-    private UserResponse toUserResponse(User user) {
-        return new UserResponse(
-                user.getUsername(),
-                user.getFirstName(),
-                user.getLastName(),
-                user.getEmail(),
-                user.getPhoneNumber(),
-                user.getProvider(),
-                user.getRoles().stream()
-                        .map(role -> role.getName().name())
-                        .collect(java.util.stream.Collectors.toSet())
-        );
     }
 
     private boolean hasText(String value) {
