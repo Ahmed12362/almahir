@@ -2,6 +2,7 @@ package com.almahir.iti.service.impl;
 
 import com.almahir.iti.dto.request.GoogleAuthRequest;
 import com.almahir.iti.dto.response.UserResponse;
+import com.almahir.iti.exception.InvalidUserRoleException;
 import com.almahir.iti.exception.ResourceNotFound;
 import com.almahir.iti.mapper.UserMapper;
 import com.almahir.iti.service.*;
@@ -14,17 +15,26 @@ import com.almahir.iti.model.AuthUser;
 import com.almahir.iti.model.RefreshToken;
 import com.almahir.iti.model.Role;
 import com.almahir.iti.model.RoleName;
+import com.almahir.iti.model.Sheikh;
+import com.almahir.iti.model.SheikhStatus;
+import com.almahir.iti.model.Student;
 import com.almahir.iti.model.User;
 import com.almahir.iti.repository.RoleRepository;
+import com.almahir.iti.repository.SheikhRepository;
+import com.almahir.iti.repository.StudentRepository;
 import com.almahir.iti.repository.UserRepository;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.exception.UncheckedIllegalAccessException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -37,6 +47,8 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final SheikhRepository sheikhRepository;
+    private final StudentRepository studentRepository;
 
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
@@ -46,8 +58,14 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserMapper userMapper;
 
+//    @Override
+//    public AuthResponse login(LoginRequest request) {
+//
+//        return login(request, null);
+//    }
+
     @Override
-    public AuthResponse login(LoginRequest request) {
+    public AuthResponse login(LoginRequest request, RoleName requiredRole) {
 
         var authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
@@ -57,6 +75,10 @@ public class AuthServiceImpl implements AuthService {
         );
 
         AuthUser authUser = (AuthUser) authentication.getPrincipal();
+
+        if (requiredRole != null && !hasRole(authUser.getUser(), requiredRole)) {
+            throw new BadCredentialsException("Authentication failed.");
+        }
 
         String accessToken =
                 jwtService.generateAccessToken(authUser);
@@ -73,7 +95,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public AuthResponse loginWithGoogle(GoogleAuthRequest request) {
+    public AuthResponse loginWithGoogle(GoogleAuthRequest request, RoleName requiredRole) {
 
         GoogleIdToken.Payload payload =
                 googleTokenVerifierService.verify(request.idToken());
@@ -98,7 +120,19 @@ public class AuthServiceImpl implements AuthService {
                     isNewUser.set(false);
                     return userRepository.save(existingUser);
                 })
-                .orElseGet(() -> createGoogleUser(email, googleId, fullName, firstName, lastName));
+                .orElseGet(() -> createGoogleUser(email, googleId, fullName, firstName, lastName, requiredRole));
+
+        if(user.getRoles()
+                .stream()
+                .noneMatch(role ->
+                        role.getName()
+                                .toString()
+                                .equals(
+                                        requiredRole.toString())
+                )
+        ) {
+            throw new InvalidUserRoleException("You are " + user.getRoles().stream().findFirst().get().getName().toString() + ", and that app is for " + requiredRole.toString() + " Only");
+        }
 
 
         AuthUser authUser = new AuthUser(user);
@@ -117,16 +151,26 @@ public class AuthServiceImpl implements AuthService {
         );
     }
 
+//    @Override
+//    @Transactional
+//    public UserResponse register(RegisterRequest request, MultipartFile file) {
+//
+//        return register(request, file, RoleName.USER);
+//    }
+
     @Override
-    public UserResponse register(RegisterRequest request, MultipartFile file) {
+    @Transactional
+    public UserResponse register(RegisterRequest request, MultipartFile file, RoleName roleName) {
 
         if (userRepository.findByEmail(request.email()).isPresent()) {
             throw new AlreadyExists(request.email());
         }
 
-        Role userRole = roleRepository.findByName(RoleName.USER)
+        validateRegistrationRole(roleName);
+
+        Role userRole = roleRepository.findByName(roleName)
                 .orElseThrow(() ->
-                        new ResourceNotFound("Role Not Found: " + RoleName.USER));
+                        new ResourceNotFound("Role Not Found: " + roleName));
 
         String imageUrl = null;
         if (file != null && !file.isEmpty()) {
@@ -146,16 +190,30 @@ public class AuthServiceImpl implements AuthService {
                 .build();
 
         User savedUser = userRepository.save(user);
+        createProfile(savedUser, roleName);
         return userMapper.toUserResponse(savedUser);
     }
 
     @Override
-    public AuthResponse refresh(RefreshTokenRequest request) {
+    public AuthResponse refresh(RefreshTokenRequest request, RoleName roleName) {
 
         RefreshToken refreshToken =
                 refreshTokenService.validate(
                         request.refreshToken()
                 );
+
+        if(refreshToken.getUser()
+                .getRoles()
+                .stream()
+                .noneMatch(role ->
+                        role.getName()
+                                .toString()
+                                .equals(roleName.toString())
+                )
+        )
+        {
+            throw new InvalidUserRoleException("You are " + refreshToken.getUser().getRoles().stream().findFirst().get().getName().toString() + ", and that app is for " + roleName.toString() + " Only");
+        }
 
         AuthUser authUser =
                 new AuthUser(refreshToken.getUser());
@@ -185,11 +243,12 @@ public class AuthServiceImpl implements AuthService {
             String googleId,
             String fullName,
             String firstName,
-            String lastName
+            String lastName,
+            RoleName requiredRole
     ) {
-        Role userRole = roleRepository.findByName(RoleName.USER)
+        Role userRole = roleRepository.findByName(requiredRole)
                 .orElseThrow(() ->
-                        new ResourceNotFound("Role Not Found:" + RoleName.USER.toString()));
+                        new ResourceNotFound("Role Not Found:" + requiredRole.toString()));
 
         String resolvedFirstName = hasText(firstName) ? firstName : resolveFirstName(fullName, email);
         String resolvedLastName = hasText(lastName) ? lastName : resolveLastName(fullName);
@@ -204,7 +263,37 @@ public class AuthServiceImpl implements AuthService {
                 .roles(Set.of(userRole))
                 .build();
 
+        createProfile(user, requiredRole);
         return userRepository.save(user);
+    }
+
+    private void createProfile(User user, RoleName roleName) {
+        if (roleName == RoleName.SHEIKH) {
+            sheikhRepository.save(Sheikh.builder()
+                    .user(user)
+                    .sheikhStatus(SheikhStatus.AVAILABLE)
+                    .rate(0.0)
+                    .build());
+        }
+
+        if (roleName == RoleName.STUDENT) {
+            studentRepository.save(Student.builder()
+                    .user(user)
+                    .build());
+        }
+    }
+
+    private void validateRegistrationRole(RoleName roleName) {
+        if (roleName != RoleName.USER
+                && roleName != RoleName.SHEIKH
+                && roleName != RoleName.STUDENT) {
+            throw new IllegalArgumentException("Unsupported registration role: " + roleName);
+        }
+    }
+
+    private boolean hasRole(User user, RoleName roleName) {
+        return user.getRoles().stream()
+                .anyMatch(role -> role.getName() == roleName);
     }
 
     private boolean hasText(String value) {
