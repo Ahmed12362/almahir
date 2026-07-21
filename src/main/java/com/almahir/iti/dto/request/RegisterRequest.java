@@ -23,8 +23,10 @@ public record RegisterRequest(
         @Size(min = 8)
         String password,
 
-//        @Pattern
-        //:TODO impl phone number pattern
+        @Pattern(
+                regexp = "^(\\+20|0)?1[0125]\\d{8}$",
+                message = "Invalid Egyptian phone number format"
+        )
         String phoneNumber
 
 ) {
