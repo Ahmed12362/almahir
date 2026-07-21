@@ -33,6 +33,9 @@ public class User {
     private String googleId;
     private String provider;
 
+    @Column(nullable = true)
+    private String profilePictureUrl;
+
     @ManyToMany(cascade = {CascadeType.MERGE, CascadeType.PERSIST, CascadeType.DETACH, CascadeType.REFRESH}
             , fetch = FetchType.EAGER)
     @JoinTable(
