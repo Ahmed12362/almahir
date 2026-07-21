@@ -25,8 +25,6 @@ public class ForgotPasswordController {
     public ResponseEntity<ApiResponse<Void>> verifyEmail(@PathVariable String email) {
         User user = userService.getUserByEmail(email);
 
-        System.out.println("User found: " + user.getEmail()); // Debugging line
-
         forgotPasswordService.generateAndSendOtp(email);
 
         return ResponseEntity.ok(ApiResponse.success("Email verification successful. OTP sent."));
