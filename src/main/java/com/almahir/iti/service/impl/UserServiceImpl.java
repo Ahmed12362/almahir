@@ -41,18 +41,4 @@ public class UserServiceImpl implements UserService {
         User updatedUser = userRepository.save(user);
         return userMapper.toUserResponse(updatedUser);
     }
-
-//    private UserResponse toUserResponse(User user) {
-//        return new UserResponse(
-//                user.getUsername(),
-//                user.getFirstName(),
-//                user.getLastName(),
-//                user.getEmail(),
-//                user.getPhoneNumber(),
-//                user.getProvider(),
-//                user.getRoles().stream()
-//                        .map(role -> role.getName().name())
-//                        .collect(Collectors.toSet())
-//        );
-//    }
 }
