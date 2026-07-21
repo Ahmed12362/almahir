@@ -1,6 +1,8 @@
 package com.almahir.iti.model;
 
 public enum RoleName {
-    USER,
-    ADMIN
+//    USER,
+//    ADMIN,
+    SHEIKH,
+    STUDENT
 }

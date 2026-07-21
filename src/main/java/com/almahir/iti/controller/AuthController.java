@@ -7,6 +7,7 @@ import com.almahir.iti.dto.request.RegisterRequest;
 import com.almahir.iti.dto.response.ApiResponse;
 import com.almahir.iti.dto.response.AuthResponse;
 import com.almahir.iti.dto.response.UserResponse;
+import com.almahir.iti.model.RoleName;
 import com.almahir.iti.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,13 +28,18 @@ import java.time.Instant;
 public class AuthController {
     private final AuthService authService;
 
-    @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = {"/user/register", "/sheikh/register"},
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<UserResponse>> register(
-            @RequestPart("data") @Valid RegisterRequest request,
+            @RequestPart(value = "data") @Valid RegisterRequest request,
             @RequestPart(value = "file", required = false) MultipartFile file
     ) {
 
-        UserResponse userResponse = authService.register(request, file);
+        String uri = ServletUriComponentsBuilder.fromCurrentRequest().toUriString();
+
+        UserResponse userResponse = authService.register(request, file,
+                uri.contains("user") ? RoleName.STUDENT : RoleName.SHEIKH);
+
 
         URI location = ServletUriComponentsBuilder
                 .fromCurrentContextPath()
@@ -51,23 +57,29 @@ public class AuthController {
     }
 
 
-    @PostMapping("/login")
+    @PostMapping({"/user/login", "/sheikh/login"})
     public ResponseEntity<ApiResponse<AuthResponse>> login(
             @Valid @RequestBody LoginRequest request) {
+
+        String uri = ServletUriComponentsBuilder.fromCurrentRequest().toUriString();
 
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "Login successful",
-                        authService.login(request)
+                        authService.login(request,
+                                uri.contains("user") ? RoleName.STUDENT : RoleName.SHEIKH)
                 )
         );
     }
 
-    @PostMapping("/google")
+    @PostMapping({"/user/google", "/sheikh/google"})
     public ResponseEntity<ApiResponse<AuthResponse>> googleLogin(
             @Valid @RequestBody GoogleAuthRequest request) {
 
-        AuthResponse response = authService.loginWithGoogle(request);
+        String uri = ServletUriComponentsBuilder.fromCurrentRequest().toUriString();
+
+        AuthResponse response = authService.loginWithGoogle(request,
+                uri.contains("user") ? RoleName.STUDENT : RoleName.SHEIKH);
 
         HttpStatus status = response.isNewUser()
                 ? HttpStatus.CREATED
@@ -85,7 +97,7 @@ public class AuthController {
                 );
     }
 
-    @PostMapping("/refresh")
+    @PostMapping({"user/refresh", "sheikh/refresh"})
     public ResponseEntity<ApiResponse<AuthResponse>> refresh(
 
             @Valid
@@ -93,8 +105,11 @@ public class AuthController {
 
     ) {
 
+        String uri = ServletUriComponentsBuilder.fromCurrentRequest().toUriString();
+
         AuthResponse response =
-                authService.refresh(request);
+                authService.refresh(request,
+                        uri.contains("user") ? RoleName.STUDENT : RoleName.SHEIKH);
 
         return ResponseEntity.ok(
                 ApiResponse.success(
