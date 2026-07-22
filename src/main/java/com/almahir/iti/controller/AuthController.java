@@ -7,8 +7,11 @@ import com.almahir.iti.dto.request.RegisterRequest;
 import com.almahir.iti.dto.response.ApiResponse;
 import com.almahir.iti.dto.response.AuthResponse;
 import com.almahir.iti.dto.response.UserResponse;
-import com.almahir.iti.model.RoleName;
+import com.almahir.iti.model.enums.RoleName;
 import com.almahir.iti.service.AuthService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -25,9 +28,15 @@ import java.time.Instant;
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 //@CrossOrigin("*")
+@Tag(name = "Authentication", description = "Endpoints for user & sheikh registration, login, token refresh, and OAuth")
 public class AuthController {
     private final AuthService authService;
 
+    @Operation(summary = "Register user or sheikh", description = "Registers a new user or sheikh with multipart data (JSON payload + optional file).")
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Registration successful"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Validation or payload error")
+    })
     @PostMapping(value = {"/user/register", "/sheikh/register"},
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<UserResponse>> register(
@@ -56,7 +65,11 @@ public class AuthController {
                 ));
     }
 
-
+    @Operation(summary = "Login user or sheikh", description = "Authenticates credentials and returns JWT tokens.")
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Login successful"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Invalid credentials")
+    })
     @PostMapping({"/user/login", "/sheikh/login"})
     public ResponseEntity<ApiResponse<AuthResponse>> login(
             @Valid @RequestBody LoginRequest request) {
@@ -72,6 +85,7 @@ public class AuthController {
         );
     }
 
+    @Operation(summary = "Google OAuth Login", description = "Authenticates or signs up a user/sheikh using a Google token.")
     @PostMapping({"/user/google", "/sheikh/google"})
     public ResponseEntity<ApiResponse<AuthResponse>> googleLogin(
             @Valid @RequestBody GoogleAuthRequest request) {
@@ -97,6 +111,7 @@ public class AuthController {
                 );
     }
 
+    @Operation(summary = "Refresh JWT Token", description = "Exchanges a valid refresh token for a new access token.")
     @PostMapping({"user/refresh", "sheikh/refresh"})
     public ResponseEntity<ApiResponse<AuthResponse>> refresh(
 
@@ -120,6 +135,7 @@ public class AuthController {
 
     }
 
+    @Operation(summary = "Logout user", description = "Revokes or invalidates the refresh token.")
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
 
