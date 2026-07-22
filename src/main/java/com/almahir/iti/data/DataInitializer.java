@@ -1,7 +1,7 @@
 package com.almahir.iti.data;
 
 import com.almahir.iti.model.Role;
-import com.almahir.iti.model.RoleName;
+import com.almahir.iti.model.enums.RoleName;
 import com.almahir.iti.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;

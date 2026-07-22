@@ -14,9 +14,9 @@ import com.almahir.iti.exception.AlreadyExists;
 import com.almahir.iti.model.AuthUser;
 import com.almahir.iti.model.RefreshToken;
 import com.almahir.iti.model.Role;
-import com.almahir.iti.model.RoleName;
+import com.almahir.iti.model.enums.RoleName;
 import com.almahir.iti.model.Sheikh;
-import com.almahir.iti.model.SheikhStatus;
+import com.almahir.iti.model.enums.SheikhStatus;
 import com.almahir.iti.model.Student;
 import com.almahir.iti.model.User;
 import com.almahir.iti.repository.RoleRepository;
@@ -25,7 +25,6 @@ import com.almahir.iti.repository.StudentRepository;
 import com.almahir.iti.repository.UserRepository;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import lombok.RequiredArgsConstructor;
-import org.apache.commons.lang3.exception.UncheckedIllegalAccessException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -34,7 +33,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 

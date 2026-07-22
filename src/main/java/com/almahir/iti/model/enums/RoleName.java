@@ -1,4 +1,4 @@
-package com.almahir.iti.model;
+package com.almahir.iti.model.enums;
 
 public enum RoleName {
 //    USER,

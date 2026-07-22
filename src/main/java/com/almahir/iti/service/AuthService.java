@@ -6,8 +6,7 @@ import com.almahir.iti.dto.request.RefreshTokenRequest;
 import com.almahir.iti.dto.request.RegisterRequest;
 import com.almahir.iti.dto.response.AuthResponse;
 import com.almahir.iti.dto.response.UserResponse;
-import com.almahir.iti.model.User;
-import com.almahir.iti.model.RoleName;
+import com.almahir.iti.model.enums.RoleName;
 import org.springframework.web.multipart.MultipartFile;
 
 public interface AuthService {

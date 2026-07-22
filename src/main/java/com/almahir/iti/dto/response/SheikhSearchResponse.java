@@ -1,6 +1,6 @@
 package com.almahir.iti.dto.response;
 
-import com.almahir.iti.model.SheikhStatus;
+import com.almahir.iti.model.enums.SheikhStatus;
 
 import java.util.UUID;
 

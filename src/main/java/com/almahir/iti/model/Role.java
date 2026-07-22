@@ -1,5 +1,6 @@
 package com.almahir.iti.model;
 
+import com.almahir.iti.model.enums.RoleName;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
