@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
@@ -97,6 +98,39 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(RegistrationFailedException.class)
+    public ResponseEntity<ErrorResponse> handleRegistrationFailure(RegistrationFailedException ex) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new ErrorResponse(
+                        false,
+                        ex.getMessage(),
+                        null,
+                        Instant.now()
+                ));
+    }
+
+    @ExceptionHandler(InvalidUserRoleException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidUserRole(InvalidUserRoleException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ErrorResponse(
+                        false,
+                        ex.getMessage(),
+                        null,
+                        Instant.now()
+                ));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation() {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(
+                        false,
+                        "The request conflicts with existing data.",
+                        null,
+                        Instant.now()
+                ));
+    }
+
     @ExceptionHandler(ResourceNotFound.class)
     public ResponseEntity<ErrorResponse> handleResourceNotFound(ResourceNotFound ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -165,7 +199,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ErrorResponse(
                         false,
-                        e.getMessage(),
+                        "An unexpected error occurred.",
                         null,
                         Instant.now()
                 ));
