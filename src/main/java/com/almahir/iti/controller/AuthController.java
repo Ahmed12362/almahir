@@ -7,7 +7,7 @@ import com.almahir.iti.dto.request.RegisterRequest;
 import com.almahir.iti.dto.response.ApiResponse;
 import com.almahir.iti.dto.response.AuthResponse;
 import com.almahir.iti.dto.response.UserResponse;
-import com.almahir.iti.model.RoleName;
+import com.almahir.iti.model.enums.RoleName;
 import com.almahir.iti.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;

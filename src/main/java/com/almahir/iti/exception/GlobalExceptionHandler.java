@@ -2,6 +2,8 @@ package com.almahir.iti.exception;
 
 import com.almahir.iti.dto.response.ApiResponse;
 import com.almahir.iti.dto.response.ErrorResponse;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -128,6 +130,24 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException ex) {
+        Map<String, String> fieldErrors = new LinkedHashMap<>();
+
+        for (ConstraintViolation<?> violation : ex.getConstraintViolations()) {
+            String field = violation.getPropertyPath().toString();
+            fieldErrors.putIfAbsent(field, violation.getMessage());
+        }
+
+        return ResponseEntity.badRequest()
+                .body(new ErrorResponse(
+                        false,
+                        "Validation failed.",
+                        fieldErrors,
+                        Instant.now()
+                ));
+    }
+
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     public ResponseEntity<ErrorResponse> handleMediaTypeNotSupported(org.springframework.web.HttpMediaTypeNotSupportedException ex) {
         return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
@@ -138,6 +158,7 @@ public class GlobalExceptionHandler {
                         Instant.now()
                 ));
     }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception e) {
         log.error("Unhandled exception occurred: ", e);
