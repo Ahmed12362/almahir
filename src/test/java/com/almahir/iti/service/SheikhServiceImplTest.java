@@ -2,7 +2,7 @@ package com.almahir.iti.service;
 
 import com.almahir.iti.dto.request.UpdateSheikhRequest;
 import com.almahir.iti.dto.response.SheikhResponse;
-import com.almahir.iti.exception.ResourceNotFound;
+import com.almahir.iti.exception.ResourceNotFoundException;
 import com.almahir.iti.mapper.SheikhMapper;
 import com.almahir.iti.model.Sheikh;
 import com.almahir.iti.model.User;
@@ -116,7 +116,7 @@ class SheikhServiceImplTest {
     void getSheikhByEmail_WhenNotFound_ShouldThrowResourceNotFound() {
         when(sheikhRepository.findByUserEmailFetchUser("unknown@example.com")).thenReturn(Optional.empty());
 
-        assertThrows(ResourceNotFound.class, () -> sheikhService.getSheikhByEmail("unknown@example.com"));
+        assertThrows(ResourceNotFoundException.class, () -> sheikhService.getSheikhByEmail("unknown@example.com"));
     }
 
     @Test
@@ -134,7 +134,7 @@ class SheikhServiceImplTest {
     void getSheikhByUsername_WhenNotFound_ShouldThrowResourceNotFound() {
         when(sheikhRepository.findByUserUsernameFetchUser("unknown")).thenReturn(Optional.empty());
 
-        assertThrows(ResourceNotFound.class, () -> sheikhService.getSheikhByUsername("unknown"));
+        assertThrows(ResourceNotFoundException.class, () -> sheikhService.getSheikhByUsername("unknown"));
     }
 
     @Test
@@ -152,7 +152,7 @@ class SheikhServiceImplTest {
     void getSheikhById_WhenNotFound_ShouldThrowResourceNotFound() {
         when(sheikhRepository.findByIdFetchUser(sheikhId)).thenReturn(Optional.empty());
 
-        assertThrows(ResourceNotFound.class, () -> sheikhService.getSheikhById(sheikhId));
+        assertThrows(ResourceNotFoundException.class, () -> sheikhService.getSheikhById(sheikhId));
     }
 
     @Test

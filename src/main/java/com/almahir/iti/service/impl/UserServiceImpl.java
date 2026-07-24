@@ -1,7 +1,7 @@
 package com.almahir.iti.service.impl;
 
 import com.almahir.iti.dto.response.UserResponse;
-import com.almahir.iti.exception.ResourceNotFound;
+import com.almahir.iti.exception.ResourceNotFoundException;
 import com.almahir.iti.mapper.UserMapper;
 import com.almahir.iti.model.AuthUser;
 import com.almahir.iti.model.User;
@@ -27,7 +27,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public User getUserByEmail(String email) {
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFound("User not found with email: " + email));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
     }
 
     @Override
@@ -37,7 +37,7 @@ public class UserServiceImpl implements UserService {
 
         UUID userId = currentUser.getUser().getId();
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFound("User not found with id: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
         String imageUrl = cloudinaryService.uploadFile(file, "almahir/profile_pictures");
         user.setProfilePictureUrl(imageUrl);

@@ -1,6 +1,6 @@
 package com.almahir.iti.model.enums;
 
-import com.almahir.iti.exception.ResourceNotFound;
+import com.almahir.iti.exception.ResourceNotFoundException;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -31,7 +31,7 @@ public enum TafsirEdition {
                 return edition;
             }
         }
-        throw new ResourceNotFound(
+        throw new ResourceNotFoundException(
                 "No tafsir edition found for lang=%s, tafsir=%s".formatted(lang, key));
     }
 }

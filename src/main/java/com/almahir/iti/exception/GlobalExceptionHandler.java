@@ -1,6 +1,5 @@
 package com.almahir.iti.exception;
 
-import com.almahir.iti.dto.response.ApiResponse;
 import com.almahir.iti.dto.response.ErrorResponse;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -131,8 +130,8 @@ public class GlobalExceptionHandler {
                 ));
     }
 
-    @ExceptionHandler(ResourceNotFound.class)
-    public ResponseEntity<ErrorResponse> handleResourceNotFound(ResourceNotFound ex) {
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFound(ResourceNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(new ErrorResponse(
                         false,
@@ -188,6 +187,28 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(
                         false,
                         "Media type not supported: " + ex.getContentType() + ". Please use application/json for data part.",
+                        null,
+                        Instant.now()
+                ));
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ErrorResponse> handleConflictException(ConflictException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(
+                        false,
+                        ex.getMessage(),
+                        null,
+                        Instant.now()
+                ));
+    }
+
+    @ExceptionHandler(ForbiddenOperationException.class)
+    public ResponseEntity<ErrorResponse> handleForbiddenOperation(ForbiddenOperationException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ErrorResponse(
+                        false,
+                        ex.getMessage(),
                         null,
                         Instant.now()
                 ));

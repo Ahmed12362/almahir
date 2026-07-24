@@ -4,7 +4,7 @@ import com.almahir.iti.client.TafsirClient;
 import com.almahir.iti.dto.response.CloudinaryRawFile;
 import com.almahir.iti.dto.response.TafsirRawResponse;
 import com.almahir.iti.dto.response.TafsirResponse;
-import com.almahir.iti.exception.ResourceNotFound;
+import com.almahir.iti.exception.ResourceNotFoundException;
 import com.almahir.iti.model.TafsirMetadata;
 import com.almahir.iti.model.enums.TafsirBuildStatus;
 import com.almahir.iti.model.enums.TafsirEdition;
@@ -54,7 +54,7 @@ public class TafsirBuildServiceImpl implements TafsirBuildService {
         log.info("Starting background build process for Tafsir: {} - Lang: {}", tafsirKey, language);
 
         TafsirMetadata metadata = metadataRepository.findByTafsirKeyAndLanguage(tafsirKey, language)
-                .orElseThrow(() -> new ResourceNotFound("Metadata entry not found for " + tafsirKey + " (" + language + ")"));
+                .orElseThrow(() -> new ResourceNotFoundException("Metadata entry not found for " + tafsirKey + " (" + language + ")"));
 
         metadata.setStatus(TafsirBuildStatus.IN_PROGRESS);
         metadataRepository.save(metadata);

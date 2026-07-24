@@ -5,7 +5,7 @@ import com.almahir.iti.dto.response.TafsirBuildStatusResponse;
 import com.almahir.iti.dto.response.TafsirCatalogResponse;
 import com.almahir.iti.dto.response.TafsirRawResponse;
 import com.almahir.iti.dto.response.TafsirResponse;
-import com.almahir.iti.exception.ResourceNotFound;
+import com.almahir.iti.exception.ResourceNotFoundException;
 import com.almahir.iti.model.TafsirMetadata;
 import com.almahir.iti.model.enums.TafsirBuildStatus;
 import com.almahir.iti.model.enums.TafsirEdition;
@@ -41,7 +41,7 @@ public class TafsirServiceImpl implements TafsirService {
         TafsirRawResponse raw = tafsirClient.fetchRawTafsir(edition, surah, ayah);
 
         if (raw == null || raw.text() == null || raw.text().isBlank()) {
-            throw new ResourceNotFound(
+            throw new ResourceNotFoundException(
                     "Tafsir not found for surah=%d, ayah=%d".formatted(surah, ayah));
         }
 
@@ -69,7 +69,7 @@ public class TafsirServiceImpl implements TafsirService {
         TafsirMetadata metadata = metadataRepository
                 .findByTafsirKeyAndLanguage(tafsirKey, language)
                 .orElseThrow(() ->
-                        new ResourceNotFound("Tafsir metadata not found"));
+                        new ResourceNotFoundException("Tafsir metadata not found"));
 
         return new TafsirBuildStatusResponse(
                 metadata.getTafsirKey(),

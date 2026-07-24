@@ -3,7 +3,7 @@ package com.almahir.iti.service.impl;
 import com.almahir.iti.dto.request.UpdateSheikhRequest;
 import com.almahir.iti.dto.response.SheikhResponse;
 import com.almahir.iti.dto.response.SheikhSearchResponse;
-import com.almahir.iti.exception.ResourceNotFound;
+import com.almahir.iti.exception.ResourceNotFoundException;
 import com.almahir.iti.mapper.SheikhMapper;
 import com.almahir.iti.model.Sheikh;
 import com.almahir.iti.model.User;
@@ -63,21 +63,21 @@ public class SheikhServiceImpl implements SheikhService {
     @Override
     public SheikhResponse getSheikhByEmail(String email) {
         Sheikh sheikh = sheikhRepository.findByUserEmailFetchUser(email)
-                .orElseThrow(() -> new ResourceNotFound("Sheikh not found with email: " + email));
+                .orElseThrow(() -> new ResourceNotFoundException("Sheikh not found with email: " + email));
         return sheikhMapper.toSheikhResponse(sheikh);
     }
 
     @Override
     public SheikhResponse getSheikhByUsername(String username) {
         Sheikh sheikh = sheikhRepository.findByUserUsernameFetchUser(username)
-                .orElseThrow(() -> new ResourceNotFound("Sheikh not found with username: " + username));
+                .orElseThrow(() -> new ResourceNotFoundException("Sheikh not found with username: " + username));
         return sheikhMapper.toSheikhResponse(sheikh);
     }
 
     @Override
     public SheikhResponse getSheikhById(UUID id) {
         Sheikh sheikh = sheikhRepository.findByIdFetchUser(id)
-                .orElseThrow(() -> new ResourceNotFound("Sheikh not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Sheikh not found with id: " + id));
         return sheikhMapper.toSheikhResponse(sheikh);
     }
 
@@ -85,7 +85,7 @@ public class SheikhServiceImpl implements SheikhService {
     @Transactional
     public SheikhResponse updateSheikh(UUID id, UpdateSheikhRequest request, MultipartFile file) {
         Sheikh sheikh = sheikhRepository.findByIdFetchUser(id)
-                .orElseThrow(() -> new ResourceNotFound("Sheikh not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Sheikh not found with id: " + id));
 
         User user = sheikh.getUser();
 

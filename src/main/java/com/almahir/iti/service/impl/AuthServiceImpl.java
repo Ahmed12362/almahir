@@ -5,7 +5,7 @@ import com.almahir.iti.dto.response.UserResponse;
 import com.almahir.iti.exception.InvalidUserRoleException;
 import com.almahir.iti.exception.ImageUploadException;
 import com.almahir.iti.exception.RegistrationFailedException;
-import com.almahir.iti.exception.ResourceNotFound;
+import com.almahir.iti.exception.ResourceNotFoundException;
 import com.almahir.iti.mapper.UserMapper;
 import com.almahir.iti.service.*;
 import com.almahir.iti.dto.request.LoginRequest;
@@ -28,7 +28,6 @@ import com.almahir.iti.repository.UserRepository;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.exception.UncheckedIllegalAccessException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -38,7 +37,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -175,7 +173,7 @@ public class AuthServiceImpl implements AuthService {
 
             Role userRole = roleRepository.findByName(roleName)
                     .orElseThrow(() ->
-                            new ResourceNotFound("Role Not Found: " + roleName));
+                            new ResourceNotFoundException("Role Not Found: " + roleName));
 
             String imageUrl = null;
             if (file != null && !file.isEmpty()) {
@@ -197,7 +195,7 @@ public class AuthServiceImpl implements AuthService {
             User savedUser = userRepository.save(user);
             createProfile(savedUser, roleName);
             return userMapper.toUserResponse(savedUser);
-        } catch (AlreadyExists | ResourceNotFound | ImageUploadException | InvalidUserRoleException ex) {
+        } catch (AlreadyExists | ResourceNotFoundException | ImageUploadException | InvalidUserRoleException ex) {
             throw ex;
         } catch (DataIntegrityViolationException ex) {
             throw new AlreadyExists(request.email());
@@ -261,7 +259,7 @@ public class AuthServiceImpl implements AuthService {
     ) {
         Role userRole = roleRepository.findByName(requiredRole)
                 .orElseThrow(() ->
-                        new ResourceNotFound("Role Not Found:" + requiredRole.toString()));
+                        new ResourceNotFoundException("Role Not Found:" + requiredRole.toString()));
 
         String resolvedFirstName = hasText(firstName) ? firstName : resolveFirstName(fullName, email);
         String resolvedLastName = hasText(lastName) ? lastName : resolveLastName(fullName);
