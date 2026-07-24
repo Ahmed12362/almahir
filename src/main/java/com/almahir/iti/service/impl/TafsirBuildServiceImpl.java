@@ -80,9 +80,14 @@ public class TafsirBuildServiceImpl implements TafsirBuildService {
             }
 
             log.info("Dispatched {} tasks to queue for Tafsir {}", futures.size(), tafsirKey);
+            log.info("Waiting for all futures...");
 
+            long completed = futures.stream().filter(CompletableFuture::isDone).count();
+
+            log.info("Completed before join: {}/{}", completed, futures.size());
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-
+            log.info("All futures completed.");
+            log.info("Collecting futures...");
             List<TafsirResponse> allAyahs = new ArrayList<>();
             for (CompletableFuture<TafsirResponse> future : futures) {
                 allAyahs.add(future.get());
@@ -101,6 +106,7 @@ public class TafsirBuildServiceImpl implements TafsirBuildService {
             byte[] fileBytes = obj.toByteArray();
 
             String fileName = tafsirKey + "_" + language + "_full.json.gz";
+            log.info("Uploading to Cloudinary...");
             String cloudinaryUrl = cloudinaryService.uploadRawFile(fileBytes, fileName, "almahir/tafsirs");
 
             metadata.setFileUrl(cloudinaryUrl);
@@ -130,7 +136,8 @@ public class TafsirBuildServiceImpl implements TafsirBuildService {
                 log.warn("Retrying fetch for Surah {} Ayah {} (Attempts left: {})", surah, ayah, retriesLeft - 1);
                 try {
                     Thread.sleep(500);
-                } catch (InterruptedException ignored) {}
+                } catch (InterruptedException ignored) {
+                }
                 return fetchAyahWithRetry(slug, surah, ayah, retriesLeft - 1);
             } else {
                 log.error("Failed to fetch Surah {} Ayah {} after retries", surah, ayah, e);

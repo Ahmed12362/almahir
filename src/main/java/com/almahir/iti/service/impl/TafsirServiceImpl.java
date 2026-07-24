@@ -1,10 +1,12 @@
 package com.almahir.iti.service.impl;
 
 import com.almahir.iti.client.TafsirClient;
+import com.almahir.iti.dto.response.TafsirBuildStatusResponse;
 import com.almahir.iti.dto.response.TafsirCatalogResponse;
 import com.almahir.iti.dto.response.TafsirRawResponse;
 import com.almahir.iti.dto.response.TafsirResponse;
 import com.almahir.iti.exception.ResourceNotFound;
+import com.almahir.iti.model.TafsirMetadata;
 import com.almahir.iti.model.enums.TafsirBuildStatus;
 import com.almahir.iti.model.enums.TafsirEdition;
 import com.almahir.iti.repository.TafsirMetadataRepository;
@@ -60,5 +62,21 @@ public class TafsirServiceImpl implements TafsirService {
                         m.getFileSizeBytes()
                 ))
                 .toList();
+    }
+    @Override
+    public TafsirBuildStatusResponse getBuildStatus(String tafsirKey, String language) {
+
+        TafsirMetadata metadata = metadataRepository
+                .findByTafsirKeyAndLanguage(tafsirKey, language)
+                .orElseThrow(() ->
+                        new ResourceNotFound("Tafsir metadata not found"));
+
+        return new TafsirBuildStatusResponse(
+                metadata.getTafsirKey(),
+                metadata.getLanguage(),
+                metadata.getStatus(),
+                metadata.getFileUrl(),
+                metadata.getFileSizeBytes()
+        );
     }
 }
