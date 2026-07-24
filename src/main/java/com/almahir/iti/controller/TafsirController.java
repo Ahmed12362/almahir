@@ -79,4 +79,24 @@ public class TafsirController {
                 )
         );
     }
+    @PostMapping("/build/sync")
+    public ResponseEntity<ApiResponse<Void>> syncMetadata(
+            @RequestHeader(value = "X-Admin-Secret", required = false) String incomingSecret) {
+
+        if (incomingSecret == null || !incomingSecret.equals(adminSecretKey)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new ApiResponse<>(
+                            false,
+                            "Unauthorized access: Invalid or missing secret key",
+                            null,
+                            Instant.now()
+                    ));
+        }
+
+        tafsirBuildService.syncMetadataFromCloudinary();
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Cloudinary metadata synced successfully.")
+        );
+    }
 }

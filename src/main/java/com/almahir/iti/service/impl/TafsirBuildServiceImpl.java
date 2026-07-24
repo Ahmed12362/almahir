@@ -1,6 +1,7 @@
 package com.almahir.iti.service.impl;
 
 import com.almahir.iti.client.TafsirClient;
+import com.almahir.iti.dto.response.CloudinaryRawFile;
 import com.almahir.iti.dto.response.TafsirRawResponse;
 import com.almahir.iti.dto.response.TafsirResponse;
 import com.almahir.iti.exception.ResourceNotFound;
@@ -144,5 +145,45 @@ public class TafsirBuildServiceImpl implements TafsirBuildService {
                 throw e;
             }
         }
+    }
+
+    @Override
+    public void syncMetadataFromCloudinary() {
+
+        List<CloudinaryRawFile> files =
+                cloudinaryService.getRawFiles("almahir/tafsirs");
+
+        for (CloudinaryRawFile file : files) {
+
+            String publicId = file.publicId();
+
+            String fileName = publicId.substring(publicId.lastIndexOf('/') + 1);
+
+            String[] parts = fileName.split("_");
+
+            if (parts.length < 3) {
+                log.warn("Skipping invalid file name: {}", fileName);
+                continue;
+            }
+
+            String tafsirKey = parts[0];
+            String language = parts[1];
+
+            metadataRepository
+                    .findByTafsirKeyAndLanguage(tafsirKey, language)
+                    .ifPresent(metadata -> {
+
+                        metadata.setFileUrl(file.secureUrl());
+                        metadata.setFileSizeBytes(file.bytes());
+                        metadata.setStatus(TafsirBuildStatus.READY);
+
+                        metadataRepository.save(metadata);
+
+                        log.info("Synced metadata for {} ({})",
+                                tafsirKey, language);
+                    });
+        }
+
+        log.info("Cloudinary metadata sync completed.");
     }
 }
