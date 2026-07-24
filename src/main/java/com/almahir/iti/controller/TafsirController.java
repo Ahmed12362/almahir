@@ -1,6 +1,7 @@
 package com.almahir.iti.controller;
 
 import com.almahir.iti.dto.response.ApiResponse;
+import com.almahir.iti.dto.response.TafsirBuildStatusResponse;
 import com.almahir.iti.dto.response.TafsirCatalogResponse;
 import com.almahir.iti.dto.response.TafsirResponse;
 import com.almahir.iti.service.TafsirBuildService;
@@ -65,5 +66,17 @@ public class TafsirController {
 
         return ResponseEntity.accepted()
                 .body(ApiResponse.success("Tafsir build process started in the background for " + tafsirKey + " (" + language + ")"));
+    }
+    @GetMapping("/build/status")
+    public ResponseEntity<ApiResponse<TafsirBuildStatusResponse>> getBuildStatus(
+            @RequestParam String tafsirKey,
+            @RequestParam String language) {
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Build status fetched successfully",
+                        tafsirService.getBuildStatus(tafsirKey, language)
+                )
+        );
     }
 }

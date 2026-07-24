@@ -1,5 +1,6 @@
 package com.almahir.iti.service;
 
+import com.almahir.iti.dto.response.TafsirBuildStatusResponse;
 import com.almahir.iti.dto.response.TafsirCatalogResponse;
 import com.almahir.iti.dto.response.TafsirResponse;
 import jakarta.validation.constraints.Max;
@@ -15,4 +16,6 @@ public interface TafsirService {
             String tafsirKey);
 
     List<TafsirCatalogResponse> getAvailableTafsirs();
+
+    TafsirBuildStatusResponse getBuildStatus(String tafsirKey, String language);
 }
