@@ -1,5 +1,6 @@
 package com.almahir.iti.service.impl;
 
+import com.almahir.iti.dto.response.CloudinaryRawFile;
 import com.almahir.iti.exception.ImageUploadException;
 import com.almahir.iti.exception.ResourceNotFound;
 import com.almahir.iti.service.CloudinaryService;
@@ -11,6 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -65,6 +68,41 @@ public class CloudinaryServiceImpl implements CloudinaryService {
         } catch (IOException e) {
             log.error("Failed to upload raw JSON file to Cloudinary", e);
             throw new ImageUploadException("Failed to upload tafsir JSON file. Please try again.");
+        }
+    }
+
+    @Override
+    public List<CloudinaryRawFile> getRawFiles(String folderName) {
+
+        try {
+
+            Map<?, ?> result = cloudinary.api().resources(
+                    ObjectUtils.asMap(
+                            "type", "upload",
+                            "resource_type", "raw",
+                            "prefix", folderName
+                    )
+            );
+
+            List<CloudinaryRawFile> files = new ArrayList<>();
+
+            List<Map<String, Object>> resources =
+                    (List<Map<String, Object>>) result.get("resources");
+
+            for (Map<String, Object> resource : resources) {
+                files.add(
+                        new CloudinaryRawFile(
+                                (String) resource.get("public_id"),
+                                (String) resource.get("secure_url"),
+                                ((Number) resource.get("bytes")).longValue()
+                        )
+                );
+            }
+
+            return files;
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to fetch Cloudinary resources", e);
         }
     }
 }
