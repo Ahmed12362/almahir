@@ -2,6 +2,7 @@ package com.almahir.iti.data;
 
 import com.almahir.iti.model.TafsirMetadata;
 import com.almahir.iti.model.enums.TafsirBuildStatus;
+import com.almahir.iti.model.enums.TafsirEdition;
 import com.almahir.iti.repository.TafsirMetadataRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,10 +18,14 @@ public class TafsirDataSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        seedTafsir("ibn-kathir", "تفسير ابن كثير", "ar", "العربية");
-        seedTafsir("ibn-kathir", "Tafsir Ibn Kathir", "en", "English");
-        seedTafsir("al-qurtubi", "تفسير القرطبي", "ar", "العربية");
-        seedTafsir("al-saadi", "تفسير السعدي", "ar", "العربية");
+        for (TafsirEdition edition : TafsirEdition.values()) {
+            seedTafsir(
+                    edition.getKey(),
+                    edition.getDisplayName(),
+                    edition.getLang(),
+                    edition.getLangName()
+            );
+        }
     }
 
     private void seedTafsir(String key, String displayName, String lang, String langName) {
