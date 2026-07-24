@@ -12,6 +12,7 @@ import com.almahir.iti.service.TafsirService;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
@@ -21,6 +22,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Validated
+@Slf4j
 public class TafsirServiceImpl implements TafsirService {
 
     private final TafsirClient tafsirClient;
@@ -32,7 +34,7 @@ public class TafsirServiceImpl implements TafsirService {
             @Min(1) int ayah,
             String lang,
             String tafsirKey) {
-
+        log.info("Fetching tafsir from external API");
         TafsirEdition edition = TafsirEdition.resolve(lang, tafsirKey);
         TafsirRawResponse raw = tafsirClient.fetchRawTafsir(edition, surah, ayah);
 
