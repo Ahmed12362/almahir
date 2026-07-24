@@ -8,8 +8,16 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum TafsirEdition {
 
-    AR_IBN_KATHIR("ar", "ibn-kathir", "ar-tafsir-ibn-kathir"),
-    EN_IBN_KATHIR("en", "ibn-kathir", "en-tafisr-ibn-kathir");
+    IBN_KATHIR_AR("ar", "ibn-kathir", "ar-tafsir-ibn-kathir"),
+    SAADI_AR("ar", "al-saadi", "ar-tafsir-as-saadi"),
+    QURTUBI_AR("ar", "al-qurtubi", "ar-tafseer-al-qurtubi"),
+    TABARI_AR("ar", "al-tabari", "ar-tafsir-al-tabari"),
+    BAGHAWI_AR("ar", "al-baghawi", "ar-tafsir-al-baghawi"),
+    MUYASSAR_AR("ar", "muyassar", "ar-tafsir-muyassar"),
+
+    // English Editions
+    IBN_KATHIR_EN("en", "ibn-kathir", "en-tafisr-ibn-kathir"),
+    JALALAYN_EN("en", "jalalayn", "en-al-jalalayn");
 
     private final String lang;
     private final String key;

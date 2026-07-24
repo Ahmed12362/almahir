@@ -42,4 +42,29 @@ public class CloudinaryServiceImpl implements CloudinaryService {
             throw new ImageUploadException("Image upload failed. Please try again.");
         }
     }
+
+    @Override
+    public String uploadRawFile(byte[] fileBytes, String fileName, String folderName) {
+        if (fileBytes == null || fileBytes.length == 0) {
+            throw new ImageUploadException("File bytes cannot be empty");
+        }
+
+        try {
+            var uploadResult = cloudinary.uploader().upload(
+                    fileBytes,
+                    ObjectUtils.asMap(
+                            "folder", folderName,
+                            "public_id", fileName,
+                            "resource_type", "raw",
+                            "overwrite", true
+                    )
+            );
+
+            return uploadResult.get("secure_url").toString();
+
+        } catch (IOException e) {
+            log.error("Failed to upload raw JSON file to Cloudinary", e);
+            throw new ImageUploadException("Failed to upload tafsir JSON file. Please try again.");
+        }
+    }
 }

@@ -15,14 +15,19 @@ public class TafsirClient {
     private final RestClient tafsirRestClient;
 
     public TafsirRawResponse fetchRawTafsir(TafsirEdition edition, int surah, int ayah) {
+        return getAyahTafsir(edition.getSlug(), surah, ayah);
+    }
+
+    public TafsirRawResponse getAyahTafsir(String slug, int surah, int ayah) {
         try {
             return tafsirRestClient.get()
-                    .uri("/{slug}/{surah}/{ayah}.json", edition.getSlug(), surah, ayah)
+                    .uri("/{slug}/{surah}/{ayah}.json", slug, surah, ayah)
                     .retrieve()
                     .body(TafsirRawResponse.class);
         } catch (HttpClientErrorException.NotFound e) {
             throw new ResourceNotFound(
-                    "Tafsir not found for surah=%d, ayah=%d".formatted(surah, ayah));
+                    String.format("Tafsir not found for surah %d, ayah %d with edition %s", surah, ayah, slug)
+            );
         }
     }
 }
