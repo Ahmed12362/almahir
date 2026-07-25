@@ -6,6 +6,7 @@ import com.almahir.iti.dto.response.TafsirCatalogResponse;
 import com.almahir.iti.dto.response.TafsirResponse;
 import com.almahir.iti.service.TafsirBuildService;
 import com.almahir.iti.service.TafsirService;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +51,7 @@ public class TafsirController {
         return ResponseEntity.ok(ApiResponse.success("Available tafsir downloads retrieved successfully", responses));
     }
 
+    @Hidden
     @Operation(summary = "Trigger full tafsir build process (Admin)", description = "Asynchronously fetches and compiles all ayahs for a given tafsir edition and uploads to Cloudinary.")
     @PostMapping("/build")
     public ResponseEntity<ApiResponse<Void>> triggerBuild(
@@ -67,6 +69,7 @@ public class TafsirController {
         return ResponseEntity.accepted()
                 .body(ApiResponse.success("Tafsir build process started in the background for " + tafsirKey + " (" + language + ")"));
     }
+    @Hidden
     @GetMapping("/build/status")
     public ResponseEntity<ApiResponse<TafsirBuildStatusResponse>> getBuildStatus(
             @RequestParam String tafsirKey,
@@ -79,6 +82,7 @@ public class TafsirController {
                 )
         );
     }
+//    @Hidden
     @PostMapping("/build/sync")
     public ResponseEntity<ApiResponse<Void>> syncMetadata(
             @RequestHeader(value = "X-Admin-Secret", required = false) String incomingSecret) {
