@@ -2,7 +2,6 @@ package com.almahir.iti.service.impl;
 
 import com.almahir.iti.dto.response.CloudinaryRawFile;
 import com.almahir.iti.exception.ImageUploadException;
-import com.almahir.iti.exception.ResourceNotFound;
 import com.almahir.iti.service.CloudinaryService;
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;

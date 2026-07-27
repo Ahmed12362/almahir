@@ -1,7 +1,7 @@
 package com.almahir.iti.client;
 
 import com.almahir.iti.dto.response.TafsirRawResponse;
-import com.almahir.iti.exception.ResourceNotFound;
+import com.almahir.iti.exception.ResourceNotFoundException;
 import com.almahir.iti.model.enums.TafsirEdition;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -25,7 +25,7 @@ public class TafsirClient {
                     .retrieve()
                     .body(TafsirRawResponse.class);
         } catch (HttpClientErrorException.NotFound e) {
-            throw new ResourceNotFound(
+            throw new ResourceNotFoundException(
                     String.format("Tafsir not found for surah %d, ayah %d with edition %s", surah, ayah, slug)
             );
         }
