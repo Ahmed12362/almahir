@@ -2,8 +2,7 @@ package com.almahir.iti.service.impl;
 
 import com.almahir.iti.dto.request.CircleCreateRequest;
 import com.almahir.iti.dto.request.CircleUpdateRequest;
-import com.almahir.iti.dto.response.CircleMemberResponse;
-import com.almahir.iti.dto.response.CircleResponse;
+import com.almahir.iti.dto.response.*;
 import com.almahir.iti.exception.ConflictException;
 import com.almahir.iti.exception.ForbiddenOperationException;
 import com.almahir.iti.exception.ResourceNotFoundException;
@@ -51,7 +50,7 @@ public class CircleServiceImpl implements CircleService {
         }
 
         Circle circle = Circle.builder()
-                .name(request.name())
+                .title(request.name())
                 .startDate(request.startDate())
                 .endDate(request.endDate())
                 .status(CircleStatus.SCHEDULED)
@@ -64,21 +63,29 @@ public class CircleServiceImpl implements CircleService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Page<CircleResponse> listCircles(CircleStatus status, Pageable pageable) {
         Page<Circle> circles = (status != null)
                 ? circleRepository.findByStatus(status, pageable)
                 : circleRepository.findAll(pageable);
 
-        return circles.map(circle -> circleMapper.toResponse(
-                circle,
-                circleMembershipRepository.countByCircleAndStatus(circle, MembershipStatus.ACTIVE)
-        ));
+        return circles.map(circle -> {
+            long count = circleMembershipRepository.countByCircleAndStatus(circle, MembershipStatus.ACTIVE);
+            return circleMapper.toResponse(circle, count);
+        });
+    }
+
+    @Override
+    public Page<CircleResponse> getMyCircles(User currentUser, Pageable pageable) {
+        return circleMembershipRepository.findByUserAndStatus(currentUser, MembershipStatus.ACTIVE, pageable)
+                .map(cm -> {
+                    long count = circleMembershipRepository.countByCircleAndStatus(cm.getCircle(), MembershipStatus.ACTIVE);
+                    return circleMapper.toResponse(cm.getCircle(), count);
+                });
     }
 
     @Override
     @Transactional(readOnly = true)
-    public CircleResponse getCircle(UUID circleId) {
+    public CircleResponse getCircleById(UUID circleId) {
         Circle circle = circleRepository.findById(circleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
         long memberCount = circleMembershipRepository.countByCircleAndStatus(circle, MembershipStatus.ACTIVE);
@@ -94,14 +101,14 @@ public class CircleServiceImpl implements CircleService {
             throw new ForbiddenOperationException("Only the Sheikh who created this Circle can update it.");
         }
 
-        String newName = request.name() != null ? request.name() : circle.getName();
+        String newTitle = request.name() != null ? request.name() : circle.getTitle();
         LocalDateTime newStart = request.startDate() != null ? request.startDate() : circle.getStartDate();
         LocalDateTime newEnd = request.endDate() != null ? request.endDate() : circle.getEndDate();
         if(newStart.isAfter(newEnd)) {
             throw new RuntimeException("Start date must be before end date");
         }
 
-        circle.setName(newName);
+        circle.setTitle(newTitle);
         circle.setStartDate(newStart);
         circle.setEndDate(newEnd);
         circle = circleRepository.save(circle);
@@ -124,46 +131,139 @@ public class CircleServiceImpl implements CircleService {
     }
 
     @Override
-    public CircleResponse joinCircle(User currentUser, UUID circleId) {
+    @Transactional
+    public CircleEndResponse endCircle(UUID circleId, User currentUser) {
+        Circle circle = circleRepository.findById(circleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
+
+        if (!circle.getSheikh().getId().equals(currentUser.getId())) {
+            throw new ForbiddenOperationException("Only the owning Sheikh can end this circle");
+        }
+
+        if (circle.getStatus() == CircleStatus.CANCELLED) {
+            throw new ConflictException("Cannot end a cancelled circle");
+        }
+
+        if (circle.getStatus() == CircleStatus.COMPLETED) {
+            throw new ConflictException("Circle is already ended");
+        }
+
+        circle.setStatus(CircleStatus.COMPLETED);
+        LocalDateTime endedAt = LocalDateTime.now();
+
+        return new CircleEndResponse(CircleStatus.COMPLETED, endedAt);
+    }
+
+    @Override
+    @Transactional
+    public CircleJoinResponse joinCircle(UUID circleId, User currentUser) {
         Circle circle = circleRepository.findById(circleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
 
         if (circle.getStatus() == CircleStatus.CANCELLED || circle.getStatus() == CircleStatus.COMPLETED) {
-            throw new ConflictException("This Circle is not open for joining.");
+            throw new ConflictException("Cannot join a cancelled or completed circle");
         }
 
-        circleMembershipRepository.findByCircleAndUserAndStatus(circle, currentUser, MembershipStatus.ACTIVE)
-                .ifPresent(existing -> {
-                    throw new ConflictException("You have already joined this Circle.");
-                });
+        circleMembershipRepository.findByCircleAndUser(circle, currentUser).ifPresent(m -> {
+            if (m.getStatus() == MembershipStatus.ACTIVE) {
+                throw new ConflictException("You are already an active member of this circle");
+            }
+            if (m.getStatus() == MembershipStatus.PENDING) {
+                throw new ConflictException("Your join request is already pending approval");
+            }
+        });
 
         List<CircleMembership> overlaps = circleMembershipRepository.findOverlappingActiveMemberships(
-                currentUser, circle.getStartDate(), circle.getEndDate());
+                currentUser, circle.getStartDate(), circle.getEndDate()
+        );
 
         if (!overlaps.isEmpty()) {
             Circle conflicting = overlaps.get(0).getCircle();
-            throw new ConflictException(
-                    "This Circle overlaps with '" + conflicting.getName() + "' ("
-                            + conflicting.getStartDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) + "-"
-                            + conflicting.getEndDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-                            + "), which you already joined. You cannot attend two Circles at the same time."
-            );
+            throw new ConflictException(String.format(
+                    "This circle overlaps with '%s' (%s - %s) which you are already attending.",
+                    conflicting.getTitle(), conflicting.getStartDate(), conflicting.getEndDate()
+            ));
         }
 
-        CircleMembership membership = CircleMembership.builder()
-                .circle(circle)
-                .user(currentUser)
-                .status(MembershipStatus.ACTIVE)
-                .joinedAt(LocalDateTime.now())
-                .build();
-        circleMembershipRepository.save(membership);
+        CircleMembership membership = circleMembershipRepository.findByCircleAndUser(circle, currentUser)
+                .orElseGet(() -> CircleMembership.builder()
+                        .circle(circle)
+                        .user(currentUser)
+                        .build());
 
-        long memberCount = circleMembershipRepository.countByCircleAndStatus(circle, MembershipStatus.ACTIVE);
-        return circleMapper.toResponse(circle, memberCount);
+        membership.setStatus(MembershipStatus.PENDING);
+        membership.setJoinedAt(LocalDateTime.now());
+        membership.setRemovedAt(null);
+        membership.setRemovedBy(null);
+
+        CircleMembership saved = circleMembershipRepository.save(membership);
+        return circleMapper.toJoinResponse(saved);
     }
 
     @Override
-    public void leaveCircle(User currentUser, UUID circleId) {
+    @Transactional
+    public CircleMemberResponse approveJoinRequest(UUID circleId, UUID userId, User currentUser) {
+        Circle circle = circleRepository.findById(circleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
+
+        if (!circle.getSheikh().getId().equals(currentUser.getId())) {
+            throw new ForbiddenOperationException("Only the owning Sheikh can approve join requests");
+        }
+
+        CircleMembership membership = circleMembershipRepository.findByCircleAndUser(circle, User.builder().id(userId).build())
+                .orElseThrow(() -> new ResourceNotFoundException("Join request not found for user: " + userId));
+
+        if (membership.getStatus() != MembershipStatus.PENDING) {
+            throw new ConflictException("Request is not in PENDING state");
+        }
+
+        List<CircleMembership> overlaps = circleMembershipRepository.findOverlappingActiveMemberships(
+                membership.getUser(), circle.getStartDate(), circle.getEndDate()
+        );
+
+        if (!overlaps.isEmpty()) {
+            throw new ConflictException("Cannot approve request: user has an overlapping active circle");
+        }
+
+        membership.setStatus(MembershipStatus.ACTIVE);
+        return circleMapper.toMemberResponse(membership);
+    }
+
+    @Override
+    @Transactional
+    public void rejectJoinRequest(UUID circleId, UUID userId, User currentUser) {
+        Circle circle = circleRepository.findById(circleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
+
+        if (!circle.getSheikh().getId().equals(currentUser.getId())) {
+            throw new ForbiddenOperationException("Only the owning Sheikh can reject join requests");
+        }
+
+        CircleMembership membership = circleMembershipRepository.findByCircleAndUser(circle, User.builder().id(userId).build())
+                .orElseThrow(() -> new ResourceNotFoundException("Join request not found for user: " + userId));
+
+        if (membership.getStatus() != MembershipStatus.PENDING) {
+            throw new ConflictException("Request is not in PENDING state");
+        }
+
+        membership.setStatus(MembershipStatus.REJECTED);
+    }
+
+    @Override
+    public Page<PendingJoinRequestResponse> getPendingRequests(UUID circleId, User currentUser, Pageable pageable) {
+        Circle circle = circleRepository.findById(circleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
+
+        if (!circle.getSheikh().getId().equals(currentUser.getId())) {
+            throw new ForbiddenOperationException("Only the owning Sheikh can view pending requests");
+        }
+
+        return circleMembershipRepository.findByCircleAndStatus(circle, MembershipStatus.PENDING, pageable)
+                .map(circleMapper::toPendingResponse);
+    }
+
+    @Override
+    public void leaveCircle(UUID circleId, User currentUser) {
         Circle circle = circleRepository.findById(circleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
 
@@ -178,18 +278,16 @@ public class CircleServiceImpl implements CircleService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<CircleMemberResponse> listMembers(UUID circleId) {
+    public Page<CircleMemberResponse> getCircleMembers(UUID circleId, Pageable pageable) {
         Circle circle = circleRepository.findById(circleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
 
-        return circleMembershipRepository.findByCircleAndStatusOrderByJoinedAtAsc(circle, MembershipStatus.ACTIVE)
-                .stream()
-                .map(circleMapper::toMemberResponse)
-                .toList();
+        return circleMembershipRepository.findByCircleAndStatusOrderByJoinedAtAsc(circle, MembershipStatus.ACTIVE, pageable)
+                .map(circleMapper::toMemberResponse);
     }
 
     @Override
-    public void removeMember(User currentUser, UUID circleId, UUID targetUserId) {
+    public void removeMember(UUID circleId, User currentUser, UUID targetUserId) {
         Circle circle = circleRepository.findById(circleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
 
@@ -205,19 +303,5 @@ public class CircleServiceImpl implements CircleService {
         membership.setEndedAt(LocalDateTime.now());
         membership.setRemovedBy(currentUser);
         circleMembershipRepository.save(membership);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<CircleResponse> listMyCircles(User currentUser, CircleStatus status) {
-        return circleMembershipRepository.findByUserAndStatus(currentUser, MembershipStatus.ACTIVE)
-                .stream()
-                .map(CircleMembership::getCircle)
-                .filter(circle -> status == null || circle.getStatus() == status)
-                .map(circle -> circleMapper.toResponse(
-                        circle,
-                        circleMembershipRepository.countByCircleAndStatus(circle, MembershipStatus.ACTIVE)
-                ))
-                .toList();
     }
 }

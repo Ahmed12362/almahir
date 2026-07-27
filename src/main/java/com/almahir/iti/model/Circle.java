@@ -26,7 +26,7 @@ public class Circle {
     private UUID id;
 
     @Column(nullable = false)
-    private String name;
+    private String title;
 
     @Column(name = "start_date", nullable = false)
     private LocalDateTime startDate;

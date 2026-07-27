@@ -6,11 +6,12 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record CircleResponse(
-        UUID id,
-        String name,
+        UUID circleId,
+        String title,
         LocalDateTime startDate,
         LocalDateTime endDate,
         CircleStatus status,
-        long memberCount
+        long memberCount,
+        LocalDateTime createdAt
 ) {
 }

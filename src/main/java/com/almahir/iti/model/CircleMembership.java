@@ -39,6 +39,9 @@ public class CircleMembership {
     @Column(name = "joined_at", nullable = false)
     private LocalDateTime joinedAt;
 
+    @Column(name = "removed_at")
+    private LocalDateTime removedAt;
+
     @Column(name = "ended_at")
     private LocalDateTime endedAt;
 
@@ -52,4 +55,5 @@ public class CircleMembership {
             this.joinedAt = LocalDateTime.now();
         }
     }
+
 }
