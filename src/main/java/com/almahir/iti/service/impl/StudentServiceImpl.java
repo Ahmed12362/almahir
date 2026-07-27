@@ -2,7 +2,8 @@ package com.almahir.iti.service.impl;
 
 import com.almahir.iti.dto.response.PageResponse;
 import com.almahir.iti.dto.response.StudentResponse;
-import com.almahir.iti.exception.ResourceNotFound;
+import com.almahir.iti.exception.ResourceNotFoundException;
+import com.almahir.iti.exception.ResourceNotFoundException;
 import com.almahir.iti.mapper.StudentMapper;
 import com.almahir.iti.repository.StudentRepository;
 import com.almahir.iti.service.StudentService;
@@ -33,14 +34,14 @@ public class StudentServiceImpl implements StudentService {
     public StudentResponse getStudentById(UUID id) {
         return studentRepository.findById(id)
                 .map(studentMapper::toResponse)
-                .orElseThrow(() -> new ResourceNotFound("Student not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + id));
     }
 
     @Override
     public StudentResponse getStudentByEmail(String email) {
         return studentRepository.findByUserEmail(email)
                 .map(studentMapper::toResponse)
-                .orElseThrow(() -> new ResourceNotFound("Student not found with email: " + email));
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found with email: " + email));
     }
 
     @Override
