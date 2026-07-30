@@ -10,8 +10,10 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -44,10 +46,11 @@ public class InstantMeetingController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "403", description = "Only registered Sheikhs can update availability", content = @Content)
     })
+    @PreAuthorize("hasRole('SHEIKH')")
     @PutMapping("/sheikh/availability")
     public ResponseEntity<ApiResponse<SheikhAvailabilityResponse>> updateAvailability(
             @AuthenticationPrincipal AuthUser authUser,
-            @RequestBody SheikhAvailabilityRequest request) {
+            @Valid @RequestBody SheikhAvailabilityRequest request) {
         return ResponseEntity.ok(ApiResponse.success(
                 "Availability updated successfully",
                 instantMeetingService.updateSheikhAvailability(authUser.getUser(), request)
@@ -99,6 +102,8 @@ public class InstantMeetingController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "409", description = "Sheikh unavailable, or a pending request already exists", content = @Content)
     })
+
+    @PreAuthorize("hasRole('STUDENT')")
     @PostMapping("/sheikh/{sheikhId}/request")
     public ResponseEntity<ApiResponse<MeetingRequestResponse>> createRequest(
             @AuthenticationPrincipal AuthUser authUser,
@@ -129,6 +134,7 @@ public class InstantMeetingController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "409", description = "Request is not pending, expired, or was modified concurrently", content = @Content)
     })
+    @PreAuthorize("hasRole('SHEIKH')")
     @PostMapping("/{requestId}/accept")
     public ResponseEntity<ApiResponse<AcceptResponse>> accept(
             @AuthenticationPrincipal AuthUser authUser,
@@ -155,6 +161,7 @@ public class InstantMeetingController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "409", description = "Request is not in PENDING status", content = @Content)
     })
+    @PreAuthorize("hasRole('SHEIKH')")
     @PostMapping("/{requestId}/decline")
     public ResponseEntity<ApiResponse<Void>> decline(
             @AuthenticationPrincipal AuthUser authUser,
@@ -179,6 +186,8 @@ public class InstantMeetingController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "409", description = "Only a pending request can be cancelled", content = @Content)
     })
+
+    @PreAuthorize("hasRole('STUDENT')")
     @PostMapping("/{requestId}/cancel")
     public ResponseEntity<ApiResponse<Void>> cancel(
             @AuthenticationPrincipal AuthUser authUser,

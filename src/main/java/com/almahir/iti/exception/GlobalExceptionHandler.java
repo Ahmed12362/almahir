@@ -4,6 +4,7 @@ import com.almahir.iti.dto.response.ErrorResponse;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -209,6 +210,17 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(
                         false,
                         ex.getMessage(),
+                        null,
+                        Instant.now()
+                ));
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLocking() {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(
+                        false,
+                        "This resource was updated by someone else at the same time. Please refresh and try again.",
                         null,
                         Instant.now()
                 ));

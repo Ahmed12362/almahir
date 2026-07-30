@@ -71,7 +71,12 @@ public class InstantMeetingServiceImpl implements InstantMeetingService {
 
         meetingRequestRepository.findByStudentAndSheikhAndStatus(student, sheikh, MeetingRequestStatus.PENDING)
                 .ifPresent(m -> {
-                    throw new ConflictException("You already have a pending request with this Sheikh.");
+                    if (m.getExpiresAt().isBefore(LocalDateTime.now())) {
+                        m.setStatus(MeetingRequestStatus.EXPIRED);
+                        meetingRequestRepository.save(m);
+                    } else {
+                        throw new ConflictException("You already have a pending request with this Sheikh.");
+                    }
                 });
 
         String channelName = "instant_1to1_" + UUID.randomUUID().toString().substring(0, 8);
