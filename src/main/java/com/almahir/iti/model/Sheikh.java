@@ -26,4 +26,6 @@ public class Sheikh {
     private SheikhStatus sheikhStatus;
 
     private Double rate = 0.0;
+    @Version
+    private Long version;
 }
