@@ -5,6 +5,7 @@ import com.almahir.iti.dto.response.*;
 import com.almahir.iti.exception.ConflictException;
 import com.almahir.iti.exception.ForbiddenOperationException;
 import com.almahir.iti.exception.ResourceNotFoundException;
+import com.almahir.iti.mapper.MeetingRequestMapper;
 import com.almahir.iti.model.MeetingRequest;
 import com.almahir.iti.model.Sheikh;
 import com.almahir.iti.model.Student;
@@ -17,6 +18,7 @@ import com.almahir.iti.repository.StudentRepository;
 import com.almahir.iti.service.AgoraService;
 import com.almahir.iti.service.InstantMeetingService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -34,6 +36,7 @@ public class InstantMeetingServiceImpl implements InstantMeetingService {
     private final MeetingRequestRepository meetingRequestRepository;
     private final AgoraService agoraService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final MeetingRequestMapper meetingRequestMapper;
 
     @Override
     @Transactional
@@ -192,22 +195,41 @@ public class InstantMeetingServiceImpl implements InstantMeetingService {
     @Override
     @Transactional
     public void cancelMeetingRequest(User currentUser, UUID requestId) {
+
         MeetingRequest meetingRequest = meetingRequestRepository.findById(requestId)
-                .orElseThrow(() -> new ResourceNotFoundException("Meeting request not found."));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Meeting request not found."));
 
         if (!meetingRequest.getStudent().getId().equals(currentUser.getId())) {
-            throw new ForbiddenOperationException("Only the requesting student can cancel this meeting.");
+            throw new ForbiddenOperationException(
+                    "Only the requesting student can cancel this meeting.");
         }
 
         if (meetingRequest.getStatus() != MeetingRequestStatus.PENDING) {
-            throw new ConflictException("Only a pending request can be cancelled.");
+            throw new ConflictException(
+                    "Only a pending request can be cancelled.");
         }
 
         meetingRequest.setStatus(MeetingRequestStatus.CANCELLED);
         meetingRequestRepository.save(meetingRequest);
 
-        messagingTemplate.convertAndSend("/topic/meeting-requests/" + requestId,
-                new StompEventPayload<>("REQUEST_CANCELLED", requestId));
+        // Notify the student (if still listening)
+        messagingTemplate.convertAndSend(
+                "/topic/meeting-requests/" + requestId,
+                new StompEventPayload<>(
+                        "REQUEST_CANCELLED",
+                        requestId
+                )
+        );
+
+        // Notify the sheikh to remove this request from the pending list
+        messagingTemplate.convertAndSend(
+                "/topic/sheikhs/" + meetingRequest.getSheikh().getId() + "/requests",
+                new StompEventPayload<>(
+                        "SHEIKH_MEETING_REQUEST_REMOVED",
+                        requestId
+                )
+        );
     }
 
     @Override
@@ -230,6 +252,19 @@ public class InstantMeetingServiceImpl implements InstantMeetingService {
         String token = agoraService.generateToken(meetingRequest.getChannelName(), currentUser.getId());
         return new AgoraTokenResponse(token, meetingRequest.getChannelName(), currentUser.getId().toString());
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<PendingMeetingRequestResponse> getPendingRequests(User currentUser, Pageable pageable) {
+        Sheikh sheikh = sheikhRepository.findById(currentUser.getId())
+                .orElseThrow(() -> new ForbiddenOperationException("Only registered Sheikhs can view pending requests."));
+
+        Page<MeetingRequest> pending = meetingRequestRepository
+                .findBySheikhAndStatus(sheikh, MeetingRequestStatus.PENDING, pageable);
+
+        return PageResponse.from(pending.map(meetingRequestMapper::toPendingResponse));
+    }
+
     @Transactional
     @Override
     public void endMeeting(User currentUser, UUID requestId) {
