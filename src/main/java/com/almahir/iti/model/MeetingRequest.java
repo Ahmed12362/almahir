@@ -8,7 +8,15 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "instant_meeting_requests")
+@Table(
+        name = "instant_meeting_requests",
+        indexes = {
+                @Index(
+                        name = "idx_meeting_request_status_expires_at",
+                        columnList = "status, expires_at"
+                )
+        }
+)
 @Getter
 @Setter
 @NoArgsConstructor

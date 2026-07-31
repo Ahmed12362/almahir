@@ -3,6 +3,7 @@ package com.almahir.iti.service;
 import com.almahir.iti.dto.request.SheikhAvailabilityRequest;
 import com.almahir.iti.dto.response.*;
 import com.almahir.iti.model.User;
+import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
@@ -23,6 +24,8 @@ public interface InstantMeetingService {
 
     AgoraTokenResponse getMeetingToken(User currentUser, UUID requestId);
 
+    PageResponse<PendingMeetingRequestResponse> getPendingRequests(User currentUser, Pageable pageable);
+    void expirePendingRequests();
     @Transactional
     void endMeeting(User currentUser, UUID requestId);
 }

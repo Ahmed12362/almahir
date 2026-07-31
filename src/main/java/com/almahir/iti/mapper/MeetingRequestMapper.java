@@ -1,0 +1,16 @@
+package com.almahir.iti.mapper;
+
+import com.almahir.iti.dto.response.PendingMeetingRequestResponse;
+import com.almahir.iti.model.MeetingRequest;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
+@Mapper(componentModel = "spring")
+public interface MeetingRequestMapper {
+
+    @Mapping(target = "requestId", source = "id")
+    @Mapping(target = "studentId", source = "student.id")
+    @Mapping(target = "studentName", expression = "java(meetingRequest.getStudent().getUser().getFirstName() + \" \" + meetingRequest.getStudent().getUser().getLastName())")
+    @Mapping(target = "studentEmail", source = "student.user.email")
+    PendingMeetingRequestResponse toPendingResponse(MeetingRequest meetingRequest);
+}

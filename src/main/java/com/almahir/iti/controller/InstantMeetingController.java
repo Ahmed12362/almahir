@@ -12,6 +12,9 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -248,5 +251,27 @@ public class InstantMeetingController {
             @PathVariable UUID requestId) {
         instantMeetingService.endMeeting(authUser.getUser(), requestId);
         return ResponseEntity.ok(ApiResponse.success("Meeting ended successfully"));
+    }
+    @Operation(
+            summary = "Get pending meeting requests sent to the current Sheikh",
+            description = "Sheikh only. Returns all currently PENDING requests so the Sheikh can pick one to accept/decline. Call this when opening the requests screen (the WebSocket topic handles live updates while the screen is open)."
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200", description = "Pending requests retrieved successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401", description = "Unauthorized", content = @Content),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403", description = "Only registered Sheikhs can view pending requests", content = @Content)
+    })
+    @PreAuthorize("hasRole('SHEIKH')")
+    @GetMapping("/sheikh/pending")
+    public ResponseEntity<ApiResponse<PageResponse<PendingMeetingRequestResponse>>> getPendingRequests(
+            @AuthenticationPrincipal AuthUser authUser,
+            @ParameterObject @PageableDefault(size = 10, sort = "requestedAt") Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Pending requests retrieved successfully",
+                instantMeetingService.getPendingRequests(authUser.getUser(), pageable)
+        ));
     }
 }
