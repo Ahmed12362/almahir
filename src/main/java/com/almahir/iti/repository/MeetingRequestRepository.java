@@ -7,8 +7,6 @@ import com.almahir.iti.model.enums.MeetingRequestStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -35,10 +33,8 @@ public interface MeetingRequestRepository extends JpaRepository<MeetingRequest, 
 
     Page<MeetingRequest> findByStudent(Student student, Pageable pageable);
 
-    @Query("""
-            SELECT m FROM MeetingRequest m 
-            WHERE m.status = com.almahir.iti.model.enums.MeetingRequestStatus.PENDING 
-              AND m.expiresAt < :now
-            """)
-    List<MeetingRequest> findAllExpiredPendingRequests(@Param("now") LocalDateTime now);
+    List<MeetingRequest> findByStatusAndExpiresAtLessThanEqual(
+            MeetingRequestStatus status,
+            LocalDateTime time
+    );
 }

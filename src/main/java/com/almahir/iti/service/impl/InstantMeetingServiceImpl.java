@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -263,6 +264,44 @@ public class InstantMeetingServiceImpl implements InstantMeetingService {
                 .findBySheikhAndStatus(sheikh, MeetingRequestStatus.PENDING, pageable);
 
         return PageResponse.from(pending.map(meetingRequestMapper::toPendingResponse));
+    }
+
+    @Transactional
+    @Override
+    public void expirePendingRequests() {
+
+        List<MeetingRequest> expiredRequests =
+                meetingRequestRepository.findByStatusAndExpiresAtLessThanEqual(
+                        MeetingRequestStatus.PENDING,
+                        LocalDateTime.now()
+                );
+
+        if (expiredRequests.isEmpty()) {
+            return;
+        }
+
+        for (MeetingRequest request : expiredRequests) {
+
+            request.setStatus(MeetingRequestStatus.EXPIRED);
+
+            messagingTemplate.convertAndSend(
+                    "/topic/meeting-requests/" + request.getId(),
+                    new StompEventPayload<>(
+                            "REQUEST_EXPIRED",
+                            request.getId()
+                    )
+            );
+
+            messagingTemplate.convertAndSend(
+                    "/topic/sheikhs/" + request.getSheikh().getId() + "/requests",
+                    new StompEventPayload<>(
+                            "SHEIKH_MEETING_REQUEST_REMOVED",
+                            request.getId()
+                    )
+            );
+        }
+
+        meetingRequestRepository.saveAll(expiredRequests);
     }
 
     @Transactional
