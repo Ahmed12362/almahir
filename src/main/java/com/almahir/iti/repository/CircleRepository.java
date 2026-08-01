@@ -13,5 +13,5 @@ import java.util.UUID;
 @Repository
 public interface CircleRepository extends JpaRepository<Circle, UUID> {
     Page<Circle> findByStatus(CircleStatus status, Pageable pageable);
-    Page<Circle> findBySheikh(User sheikh, Pageable pageable);
+    Page<Circle> findByOwner(User owner, Pageable pageable);
 }
