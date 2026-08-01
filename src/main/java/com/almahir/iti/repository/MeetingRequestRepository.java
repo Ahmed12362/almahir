@@ -37,4 +37,16 @@ public interface MeetingRequestRepository extends JpaRepository<MeetingRequest, 
             MeetingRequestStatus status,
             LocalDateTime time
     );
+
+    List<MeetingRequest> findByStudentAndStatus(
+            Student student,
+            MeetingRequestStatus status,
+            Pageable pageable
+    );
+
+    Page<MeetingRequest> findByStudentAndStatusOrderByEndedAtDesc(
+            Student student,
+            MeetingRequestStatus status,
+            Pageable pageable
+    );
 }

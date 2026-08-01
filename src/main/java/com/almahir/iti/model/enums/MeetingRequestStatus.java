@@ -5,5 +5,6 @@ public enum MeetingRequestStatus {
     ACCEPTED,
     DECLINED,
     EXPIRED,
-    CANCELLED
+    CANCELLED,
+    ENDED
 }

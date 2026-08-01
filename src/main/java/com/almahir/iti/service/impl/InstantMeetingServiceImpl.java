@@ -144,6 +144,20 @@ public class InstantMeetingServiceImpl implements InstantMeetingService {
                         meetingRequestRepository.save(other);
                         messagingTemplate.convertAndSend("/topic/meeting-requests/" + other.getId(),
                                 new StompEventPayload<>("REQUEST_DECLINED", "Sheikh accepted another request"));
+                        messagingTemplate.convertAndSend("/topic/sheikhs/" + sheikh.getId() + "/requests",
+                                new StompEventPayload<>("SHEIKH_MEETING_REQUEST_REMOVED", other.getId()));
+                    }
+                });
+        Student student = meetingRequest.getStudent();
+        meetingRequestRepository.findByStudentAndStatus(student, MeetingRequestStatus.PENDING, Pageable.unpaged())
+                .forEach(other -> {
+                    if (!other.getId().equals(requestId)) {
+                        other.setStatus(MeetingRequestStatus.CANCELLED);
+                        meetingRequestRepository.save(other);
+                        messagingTemplate.convertAndSend("/topic/meeting-requests/" + other.getId(),
+                                new StompEventPayload<>("REQUEST_CANCELLED", "Student joined another meeting"));
+                        messagingTemplate.convertAndSend("/topic/sheikhs/" + other.getSheikh().getId() + "/requests",
+                                new StompEventPayload<>("SHEIKH_MEETING_REQUEST_REMOVED", other.getId()));
                     }
                 });
         sheikhRepository.save(sheikh);
@@ -322,6 +336,7 @@ public class InstantMeetingServiceImpl implements InstantMeetingService {
         }
 
         meetingRequest.setEndedAt(LocalDateTime.now());
+        meetingRequest.setStatus(MeetingRequestStatus.ENDED);
         meetingRequestRepository.save(meetingRequest);
 
         Sheikh sheikh = meetingRequest.getSheikh();
@@ -330,5 +345,17 @@ public class InstantMeetingServiceImpl implements InstantMeetingService {
 
         messagingTemplate.convertAndSend("/topic/meeting-requests/" + requestId,
                 new StompEventPayload<>("MEETING_ENDED", requestId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<StudentMeetingHistoryResponse> getStudentMeetingHistory(User currentUser, Pageable pageable) {
+        Student student = studentRepository.findById(currentUser.getId())
+                .orElseThrow(() -> new ForbiddenOperationException("Only registered students can view meeting history."));
+
+        Page<MeetingRequest> history = meetingRequestRepository
+                .findByStudentAndStatusOrderByEndedAtDesc(student, MeetingRequestStatus.ENDED, pageable);
+
+        return PageResponse.from(history.map(meetingRequestMapper::toStudentHistoryResponse));
     }
 }

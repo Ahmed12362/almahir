@@ -25,7 +25,11 @@ public interface InstantMeetingService {
     AgoraTokenResponse getMeetingToken(User currentUser, UUID requestId);
 
     PageResponse<PendingMeetingRequestResponse> getPendingRequests(User currentUser, Pageable pageable);
+
     void expirePendingRequests();
+
     @Transactional
     void endMeeting(User currentUser, UUID requestId);
+
+    PageResponse<StudentMeetingHistoryResponse> getStudentMeetingHistory(User currentUser, Pageable pageable);
 }
