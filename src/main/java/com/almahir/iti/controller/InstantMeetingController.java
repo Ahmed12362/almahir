@@ -27,10 +27,23 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Tag(name = "Instant Meetings", description = """
         Real-time 1-to-1 meeting requests between Students and Sheikhs.
+        Connect to STOMP at /ws BEFORE calling createRequest/accept.
         
-        IMPORTANT: this flow is HTTP + STOMP over WebSocket combined.
-        Connect to the STOMP endpoint at /ws (SockJS fallback also available at /ws)
-        BEFORE calling createMeetingRequest / acceptMeetingRequest, so you don't miss events.
+        TOPICS:
+        
+        1) /topic/sheikhs/{sheikhId}/requests — Sheikh subscribes to keep their pending list live.
+           - SHEIKH_MEETING_REQUEST_RECEIVED: new request came in. Payload: SheikhMeetingRequestEvent object.
+           - SHEIKH_MEETING_REQUEST_REMOVED: a request left the pending list (cancelled/expired/superseded). Payload: raw requestId (UUID).
+        
+        2) /topic/meeting-requests/{requestId} — Student subscribes to track their request; Sheikh too after accepting, to catch MEETING_ENDED.
+           - REQUEST_ACCEPTED: payload is AcceptResponse (includes Agora token + channel).
+           - REQUEST_DECLINED: payload is a free-text reason string.
+           - REQUEST_CANCELLED / REQUEST_EXPIRED / MEETING_ENDED: payload is raw requestId (UUID).
+        
+        Envelope for every message: { "eventType": "...", "payload": {...} }
+        
+        NOTE: accepting a request can also auto-decline/auto-cancel the sheikh's or
+        student's OTHER pending requests, firing the matching events above on their topics too.
         """)
 @SecurityRequirement(name = "bearerAuth")
 public class InstantMeetingController {
@@ -272,6 +285,28 @@ public class InstantMeetingController {
         return ResponseEntity.ok(ApiResponse.success(
                 "Pending requests retrieved successfully",
                 instantMeetingService.getPendingRequests(authUser.getUser(), pageable)
+        ));
+    }
+    @Operation(
+            summary = "Get the current student's completed meeting history",
+            description = "Student only. Returns meetings that have ended (ENDED status), most recent first."
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200", description = "Meeting history retrieved successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401", description = "Unauthorized", content = @Content),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403", description = "Only registered students can view meeting history", content = @Content)
+    })
+    @PreAuthorize("hasRole('STUDENT')")
+    @GetMapping("/student/history")
+    public ResponseEntity<ApiResponse<PageResponse<StudentMeetingHistoryResponse>>> getStudentHistory(
+            @AuthenticationPrincipal AuthUser authUser,
+            @ParameterObject @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Meeting history retrieved successfully",
+                instantMeetingService.getStudentMeetingHistory(authUser.getUser(), pageable)
         ));
     }
 }

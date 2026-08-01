@@ -12,6 +12,7 @@ import com.almahir.iti.model.CircleMembership;
 import com.almahir.iti.model.User;
 import com.almahir.iti.model.enums.CircleStatus;
 import com.almahir.iti.model.enums.MembershipStatus;
+import com.almahir.iti.model.enums.RoleName;
 import com.almahir.iti.repository.CircleMembershipRepository;
 import com.almahir.iti.repository.CircleRepository;
 import com.almahir.iti.service.CircleService;
@@ -21,7 +22,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
@@ -40,13 +40,14 @@ public class CircleServiceImpl implements CircleService {
     }
 
     @Override
+    @Transactional
     public CircleResponse createCircle(User currentUser, CircleCreateRequest request) {
-        if(!currentUser.getRoles().contains("SHEIKH")) {
-            throw new RuntimeException("You are not a sheikh");
+        if (currentUser.getRoles().stream().noneMatch(role -> role.getName() == RoleName.SHEIKH)) {
+            throw new ForbiddenOperationException("Only registered Sheikhs can create a Circle.");
         }
 
-        if(request.startDate().isAfter(request.endDate())) {
-            throw new RuntimeException("Start date must be before end date");
+        if (request.startDate().isAfter(request.endDate())) {
+            throw new ConflictException("Start date must be before end date");
         }
 
         Circle circle = Circle.builder()
@@ -54,7 +55,7 @@ public class CircleServiceImpl implements CircleService {
                 .startDate(request.startDate())
                 .endDate(request.endDate())
                 .status(CircleStatus.SCHEDULED)
-                .sheikh(currentUser)
+                .owner(currentUser)
                 .build();
 
         circle = circleRepository.save(circle);
@@ -63,6 +64,7 @@ public class CircleServiceImpl implements CircleService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Page<CircleResponse> listCircles(CircleStatus status, Pageable pageable) {
         Page<Circle> circles = (status != null)
                 ? circleRepository.findByStatus(status, pageable)
@@ -75,6 +77,7 @@ public class CircleServiceImpl implements CircleService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Page<CircleResponse> getMyCircles(User currentUser, Pageable pageable) {
         return circleMembershipRepository.findByUserAndStatus(currentUser, MembershipStatus.ACTIVE, pageable)
                 .map(cm -> {
@@ -93,19 +96,20 @@ public class CircleServiceImpl implements CircleService {
     }
 
     @Override
+    @Transactional
     public CircleResponse updateCircle(User currentUser, UUID circleId, CircleUpdateRequest request) {
         Circle circle = circleRepository.findById(circleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
 
-        if (!circle.getSheikh().getId().equals(currentUser.getId())) {
-            throw new ForbiddenOperationException("Only the Sheikh who created this Circle can update it.");
+        if (!circle.getOwner().getId().equals(currentUser.getId())) {
+            throw new ForbiddenOperationException("Only the Circle owner can update it.");
         }
 
         String newTitle = request.name() != null ? request.name() : circle.getTitle();
         LocalDateTime newStart = request.startDate() != null ? request.startDate() : circle.getStartDate();
         LocalDateTime newEnd = request.endDate() != null ? request.endDate() : circle.getEndDate();
-        if(newStart.isAfter(newEnd)) {
-            throw new RuntimeException("Start date must be before end date");
+        if (newStart.isAfter(newEnd)) {
+            throw new ConflictException("Start date must be before end date");
         }
 
         circle.setTitle(newTitle);
@@ -118,12 +122,13 @@ public class CircleServiceImpl implements CircleService {
     }
 
     @Override
+    @Transactional
     public void cancelCircle(User currentUser, UUID circleId) {
         Circle circle = circleRepository.findById(circleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
 
-        if (!circle.getSheikh().getId().equals(currentUser.getId())) {
-            throw new ForbiddenOperationException("Only the Sheikh who created this Circle can cancel it.");
+        if (!circle.getOwner().getId().equals(currentUser.getId())) {
+            throw new ForbiddenOperationException("Only the Circle owner can cancel it.");
         }
 
         circle.setStatus(CircleStatus.CANCELLED);
@@ -136,8 +141,8 @@ public class CircleServiceImpl implements CircleService {
         Circle circle = circleRepository.findById(circleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
 
-        if (!circle.getSheikh().getId().equals(currentUser.getId())) {
-            throw new ForbiddenOperationException("Only the owning Sheikh can end this circle");
+        if (!circle.getOwner().getId().equals(currentUser.getId())) {
+            throw new ForbiddenOperationException("Only the Circle owner can end it.");
         }
 
         if (circle.getStatus() == CircleStatus.CANCELLED) {
@@ -150,6 +155,7 @@ public class CircleServiceImpl implements CircleService {
 
         circle.setStatus(CircleStatus.COMPLETED);
         LocalDateTime endedAt = LocalDateTime.now();
+        circleRepository.save(circle);
 
         return new CircleEndResponse(CircleStatus.COMPLETED, endedAt);
     }
@@ -178,7 +184,7 @@ public class CircleServiceImpl implements CircleService {
         );
 
         if (!overlaps.isEmpty()) {
-            Circle conflicting = overlaps.get(0).getCircle();
+            Circle conflicting = overlaps.getFirst().getCircle();
             throw new ConflictException(String.format(
                     "This circle overlaps with '%s' (%s - %s) which you are already attending.",
                     conflicting.getTitle(), conflicting.getStartDate(), conflicting.getEndDate()
@@ -206,8 +212,8 @@ public class CircleServiceImpl implements CircleService {
         Circle circle = circleRepository.findById(circleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
 
-        if (!circle.getSheikh().getId().equals(currentUser.getId())) {
-            throw new ForbiddenOperationException("Only the owning Sheikh can approve join requests");
+        if (!circle.getOwner().getId().equals(currentUser.getId())) {
+            throw new ForbiddenOperationException("Only the Circle owner can approve join requests");
         }
 
         CircleMembership membership = circleMembershipRepository.findByCircleAndUser(circle, User.builder().id(userId).build())
@@ -226,6 +232,7 @@ public class CircleServiceImpl implements CircleService {
         }
 
         membership.setStatus(MembershipStatus.ACTIVE);
+        circleMembershipRepository.save(membership);
         return circleMapper.toMemberResponse(membership);
     }
 
@@ -235,8 +242,8 @@ public class CircleServiceImpl implements CircleService {
         Circle circle = circleRepository.findById(circleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
 
-        if (!circle.getSheikh().getId().equals(currentUser.getId())) {
-            throw new ForbiddenOperationException("Only the owning Sheikh can reject join requests");
+        if (!circle.getOwner().getId().equals(currentUser.getId())) {
+            throw new ForbiddenOperationException("Only the Circle owner can reject join requests");
         }
 
         CircleMembership membership = circleMembershipRepository.findByCircleAndUser(circle, User.builder().id(userId).build())
@@ -247,15 +254,17 @@ public class CircleServiceImpl implements CircleService {
         }
 
         membership.setStatus(MembershipStatus.REJECTED);
+        circleMembershipRepository.save(membership);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Page<PendingJoinRequestResponse> getPendingRequests(UUID circleId, User currentUser, Pageable pageable) {
         Circle circle = circleRepository.findById(circleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
 
-        if (!circle.getSheikh().getId().equals(currentUser.getId())) {
-            throw new ForbiddenOperationException("Only the owning Sheikh can view pending requests");
+        if (!circle.getOwner().getId().equals(currentUser.getId())) {
+            throw new ForbiddenOperationException("Only the Circle owner can view pending requests");
         }
 
         return circleMembershipRepository.findByCircleAndStatus(circle, MembershipStatus.PENDING, pageable)
@@ -263,6 +272,7 @@ public class CircleServiceImpl implements CircleService {
     }
 
     @Override
+    @Transactional
     public void leaveCircle(UUID circleId, User currentUser) {
         Circle circle = circleRepository.findById(circleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
@@ -287,12 +297,13 @@ public class CircleServiceImpl implements CircleService {
     }
 
     @Override
+    @Transactional
     public void removeMember(UUID circleId, User currentUser, UUID targetUserId) {
         Circle circle = circleRepository.findById(circleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
 
-        if (!circle.getSheikh().getId().equals(currentUser.getId())) {
-            throw new ForbiddenOperationException("Only the Sheikh who created this Circle can remove members.");
+        if (!circle.getOwner().getId().equals(currentUser.getId())) {
+            throw new ForbiddenOperationException("Only the Circle owner can remove members.");
         }
 
         CircleMembership membership = circleMembershipRepository

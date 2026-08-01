@@ -12,8 +12,8 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "circle_memberships")
-@Getter
+@Table(name = "circle_memberships",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"circle_id", "user_id"}))@Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
@@ -34,6 +34,7 @@ public class CircleMembership {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Builder.Default
     private MembershipStatus status = MembershipStatus.ACTIVE;
 
     @Column(name = "joined_at", nullable = false)
