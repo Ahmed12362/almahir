@@ -154,6 +154,10 @@ public class CircleServiceImpl implements CircleService {
             throw new ForbiddenOperationException("Only the Circle owner can cancel it.");
         }
 
+        if (circle.getStatus() != CircleStatus.SCHEDULED) {
+            throw new ConflictException("Only a scheduled circle (not yet started) can be cancelled. Use end for an ongoing circle.");
+        }
+
         circle.setStatus(CircleStatus.CANCELLED);
         circleRepository.save(circle);
 
@@ -171,12 +175,8 @@ public class CircleServiceImpl implements CircleService {
             throw new ForbiddenOperationException("Only the Circle owner can end it.");
         }
 
-        if (circle.getStatus() == CircleStatus.CANCELLED) {
-            throw new ConflictException("Cannot end a cancelled circle");
-        }
-
-        if (circle.getStatus() == CircleStatus.COMPLETED) {
-            throw new ConflictException("Circle is already ended");
+        if (circle.getStatus() != CircleStatus.ONGOING) {
+            throw new ConflictException("Only an ongoing circle can be ended. Use cancel for a circle that hasn't started yet.");
         }
 
         circle.setStatus(CircleStatus.COMPLETED);
@@ -369,16 +369,6 @@ public class CircleServiceImpl implements CircleService {
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public Page<CircleMemberResponse> getCircleMembers(UUID circleId, Pageable pageable) {
-        Circle circle = circleRepository.findById(circleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
-
-        return circleMembershipRepository.findByCircleAndStatusOrderByJoinedAtAsc(circle, MembershipStatus.ACTIVE, pageable)
-                .map(circleMapper::toMemberResponse);
-    }
-
-    @Override
     @Transactional
     public void removeMember(UUID circleId, User currentUser, UUID targetUserId) {
         Circle circle = circleRepository.findById(circleId)
@@ -407,8 +397,8 @@ public class CircleServiceImpl implements CircleService {
         Circle circle = circleRepository.findById(circleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
 
-        if (circle.getStatus() == CircleStatus.CANCELLED || circle.getStatus() == CircleStatus.COMPLETED) {
-            throw new ConflictException("This circle is not active.");
+        if (circle.getStatus() != CircleStatus.ONGOING) {
+            throw new ConflictException("This circle is not currently active. Ask the owner to start it first.");
         }
 
         boolean isOwner = circle.getOwner().getId().equals(currentUser.getId());
@@ -422,6 +412,50 @@ public class CircleServiceImpl implements CircleService {
 
         String token = agoraService.generateToken(circle.getChannelName(), currentUser.getId());
         return new AgoraTokenResponse(token, circle.getChannelName(), currentUser.getId().toString());
+    }
+
+    @Override
+    @Transactional
+    public CircleResponse startCircle(UUID circleId, User currentUser) {
+        Circle circle = circleRepository.findById(circleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
+
+        if (!circle.getOwner().getId().equals(currentUser.getId())) {
+            throw new ForbiddenOperationException("Only the Circle owner can start it.");
+        }
+
+        if (circle.getStatus() != CircleStatus.SCHEDULED) {
+            throw new ConflictException("Only a scheduled circle can be started.");
+        }
+
+        circle.setStatus(CircleStatus.ONGOING);
+        circle = circleRepository.save(circle);
+
+        messagingTemplate.convertAndSend("/topic/circles/" + circleId,
+                new StompEventPayload<>("CIRCLE_STARTED", circleId));
+
+        long memberCount = circleMembershipRepository.countByCircleAndStatus(circle, MembershipStatus.ACTIVE);
+        return circleMapper.toResponse(circle, memberCount);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<CircleMemberResponse> getCircleMembers(UUID circleId, User currentUser, Pageable pageable) {
+        Circle circle = circleRepository.findById(circleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
+
+        if (circle.getType() == CircleType.PRIVATE) {
+            boolean isOwner = circle.getOwner().getId().equals(currentUser.getId());
+            boolean isActiveMember = isOwner || circleMembershipRepository
+                    .findByCircleAndUserAndStatus(circle, currentUser, MembershipStatus.ACTIVE)
+                    .isPresent();
+            if (!isActiveMember) {
+                throw new ForbiddenOperationException("You are not an active member of this Circle.");
+            }
+        }
+
+        return circleMembershipRepository.findByCircleAndStatusOrderByJoinedAtAsc(circle, MembershipStatus.ACTIVE, pageable)
+                .map(circleMapper::toMemberResponse);
     }
 
     private void assertHasCapacity(Circle circle) {

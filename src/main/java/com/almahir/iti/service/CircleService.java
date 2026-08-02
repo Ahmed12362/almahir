@@ -36,9 +36,11 @@ public interface CircleService {
 
     void leaveCircle(UUID circleId, User currentUser);
 
-    Page<CircleMemberResponse> getCircleMembers(UUID circleId, Pageable pageable);
-
     void removeMember(UUID circleId, User currentUser, UUID targetUserId);
 
     AgoraTokenResponse getCircleToken(User currentUser, UUID circleId);
+
+    CircleResponse startCircle(UUID circleId, User currentUser);
+
+    Page<CircleMemberResponse> getCircleMembers(UUID circleId, User currentUser, Pageable pageable);
 }

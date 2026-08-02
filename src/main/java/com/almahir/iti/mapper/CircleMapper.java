@@ -32,6 +32,7 @@ public interface CircleMapper {
     @Mapping(target = "joinedAt", source = "joinedAt")
     CircleMemberResponse toMemberResponse(CircleMembership membership);
 
+    @Mapping(target = "membershipId", source = "id")
     @Mapping(target = "circleId", source = "circle.id")
     @Mapping(target = "userId", source = "user.id")
     @Mapping(target = "status", source = "status")
