@@ -12,11 +12,17 @@ import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring")
 public interface CircleMapper {
+
     @Mapping(target = "circleId", source = "circle.id")
     @Mapping(target = "title", source = "circle.title")
     @Mapping(target = "startDate", source = "circle.startDate")
     @Mapping(target = "endDate", source = "circle.endDate")
     @Mapping(target = "status", source = "circle.status")
+    @Mapping(target = "type", source = "circle.type")
+    @Mapping(target = "requiresApproval", source = "circle.requiresApproval")
+    @Mapping(target = "maxParticipants", source = "circle.maxParticipants")
+    @Mapping(target = "channelName", source = "circle.channelName")
+    @Mapping(target = "ownerId", source = "circle.owner.id")
     @Mapping(target = "memberCount", source = "memberCount")
     CircleResponse toResponse(Circle circle, long memberCount);
 
@@ -26,6 +32,7 @@ public interface CircleMapper {
     @Mapping(target = "joinedAt", source = "joinedAt")
     CircleMemberResponse toMemberResponse(CircleMembership membership);
 
+    @Mapping(target = "membershipId", source = "id")
     @Mapping(target = "circleId", source = "circle.id")
     @Mapping(target = "userId", source = "user.id")
     @Mapping(target = "status", source = "status")

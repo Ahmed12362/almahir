@@ -1,11 +1,9 @@
 package com.almahir.iti.dto.request;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import com.almahir.iti.model.enums.CircleType;
+import jakarta.validation.constraints.*;
 
 import java.time.LocalDateTime;
-import jakarta.validation.constraints.Future;
-import jakarta.validation.constraints.Size;
 
 public record CircleCreateRequest(
         @NotBlank(message = "Name is required")
@@ -18,5 +16,11 @@ public record CircleCreateRequest(
 
         @NotNull(message = "End date is required")
         @Future(message = "End date must be in the future")
-        LocalDateTime endDate
-) {}
+        LocalDateTime endDate,
+
+        @NotNull CircleType type,
+        boolean requiresApproval,
+        @Positive Integer maxParticipants, // nullable = unlimited
+        String password // required only if type == PRIVATE
+) {
+}

@@ -1,6 +1,7 @@
 package com.almahir.iti.controller;
 
 import com.almahir.iti.dto.request.CircleCreateRequest;
+import com.almahir.iti.dto.request.CircleJoinRequest;
 import com.almahir.iti.dto.request.CircleUpdateRequest;
 import com.almahir.iti.dto.response.*;
 import com.almahir.iti.model.AuthUser;
@@ -18,6 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,13 +28,50 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/circles")
 @RequiredArgsConstructor
-@Tag(name = "Circles", description = "Endpoints for managing Qur'an study circles and memberships")
+@Tag(name = "Circles", description = """
+        Qur'an study circles (group meetings) — PUBLIC or PRIVATE, hosted by a Sheikh (PUBLIC)
+        or by any user (PRIVATE). Supports optional approval flow, participant capacity limits,
+        and password-gated private access.
+        
+        Connect to STOMP at /ws BEFORE calling join/start/approve/etc.
+        
+        TOPICS:
+        
+        1) /topic/circles/{circleId}/requests — Circle owner subscribes to keep their pending
+           join-requests list live.
+           - CIRCLE_JOIN_REQUEST_RECEIVED: new join request came in. Payload: PendingJoinRequestResponse object.
+           - CIRCLE_JOIN_REQUEST_REMOVED: a request left the pending list (approved/rejected). Payload: raw membershipId (UUID).
+        
+        2) /topic/circle-memberships/{membershipId} — The requesting user subscribes to track
+           their own join request (membershipId is returned in the joinCircle response).
+           - REQUEST_APPROVED: payload is CircleMemberResponse.
+           - REQUEST_REJECTED: payload is a free-text reason string.
+        
+        3) /topic/circles/{circleId} — All active members (and the owner) subscribe to stay in
+           sync with the circle's lifecycle and roster.
+           - MEMBER_JOINED: someone joined (auto-approved or just got approved). Payload: CircleMemberResponse.
+           - MEMBER_LEFT: a member left voluntarily. Payload: raw userId (UUID).
+           - MEMBER_REMOVED: the owner removed a member. Payload: raw userId (UUID).
+           - CIRCLE_STARTED: owner started the circle (SCHEDULED -> ONGOING). Payload: raw circleId (UUID). Members can now request an Agora token.
+           - CIRCLE_ENDED: owner ended the circle (ONGOING -> COMPLETED). Payload: raw circleId (UUID).
+           - CIRCLE_CANCELLED: owner cancelled the circle (SCHEDULED -> CANCELLED). Payload: raw circleId (UUID).
+        
+        Envelope for every message: { "eventType": "...", "payload": {...} }
+        
+        LIFECYCLE: SCHEDULED -> ONGOING -> COMPLETED (via start/end), or SCHEDULED -> CANCELLED
+        (via cancel). A circle can only be cancelled while SCHEDULED, and only ended while ONGOING.
+        Agora tokens are only issued while the circle is ONGOING.
+        
+        PRIVATE circles: not returned by the list endpoint, require a password to join, and
+        require active membership (or ownership) to view the member list.
+        """)
 @SecurityRequirement(name = "bearerAuth")
 public class CircleController {
 
     private final CircleService circleService;
 
-    @Operation(summary = "Create a new Circle", description = "Allows a Sheikh to create a new study circle.")
+    @Operation(summary = "Create a new Circle", description = "PUBLIC circles: Sheikh only. PRIVATE circles: any authenticated user.")
+    @PreAuthorize("isAuthenticated()")
     @PostMapping()
     public ResponseEntity<ApiResponse<CircleResponse>> createCircle(
             @Valid @RequestBody CircleCreateRequest request,
@@ -43,7 +82,8 @@ public class CircleController {
                 .body(ApiResponse.success("Circle created successfully", circle));
     }
 
-    @Operation(summary = "List all Circles", description = "Retrieve a paginated list of circles, optionally filtered by status.")
+    @Operation(summary = "List all Circles", description = "Retrieve a paginated list of PUBLIC circles, optionally filtered by status.")
+    @PreAuthorize("isAuthenticated()")
     @GetMapping()
     public ResponseEntity<ApiResponse<Page<CircleResponse>>> listCircles(
             @Parameter(description = "Filter circles by status (e.g., SCHEDULED, ONGOING, COMPLETED, CANCELLED)")
@@ -54,7 +94,8 @@ public class CircleController {
         return ResponseEntity.ok(ApiResponse.success("Circles retrieved successfully", page));
     }
 
-    @Operation(summary = "Get Circle details by ID", description = "Retrieve detailed information for a specific circle.")
+    @Operation(summary = "Get Circle details by ID", description = "Retrieve detailed information for a specific circle (public or private, if you have the ID).")
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/{circleId}")
     public ResponseEntity<ApiResponse<CircleResponse>> getCircle(
             @Parameter(description = "UUID of the circle", required = true) @PathVariable UUID circleId
@@ -63,7 +104,8 @@ public class CircleController {
         return ResponseEntity.ok(ApiResponse.success("Circle details retrieved successfully", circle));
     }
 
-    @Operation(summary = "Update Circle", description = "Allows the owning Sheikh to update circle details (name, dates).")
+    @Operation(summary = "Update Circle", description = "Allows the owning user to update circle details (name, dates).")
+    @PreAuthorize("isAuthenticated()")
     @PatchMapping("/{circleId}")
     public ResponseEntity<ApiResponse<CircleResponse>> updateCircle(
             @Parameter(description = "UUID of the circle", required = true) @PathVariable UUID circleId,
@@ -74,7 +116,8 @@ public class CircleController {
         return ResponseEntity.ok(ApiResponse.success("Circle updated successfully", circle));
     }
 
-    @Operation(summary = "Cancel Circle", description = "Soft-cancels a circle. Restricted to the owning Sheikh.")
+    @Operation(summary = "Cancel Circle", description = "Cancels a SCHEDULED circle (not yet started). Restricted to the owning user.")
+    @PreAuthorize("isAuthenticated()")
     @DeleteMapping("/{circleId}")
     public ResponseEntity<ApiResponse<Void>> cancelCircle(
             @Parameter(description = "UUID of the circle", required = true) @PathVariable UUID circleId,
@@ -84,7 +127,8 @@ public class CircleController {
         return ResponseEntity.ok(ApiResponse.success("Circle cancelled successfully"));
     }
 
-    @Operation(summary = "End Circle", description = "Ends an active circle and updates its status to COMPLETED. Restricted to the owning Sheikh.")
+    @Operation(summary = "End Circle", description = "Ends an ONGOING circle and updates its status to COMPLETED. Restricted to the owning user.")
+    @PreAuthorize("isAuthenticated()")
     @PostMapping("/{circleId}/end")
     public ResponseEntity<ApiResponse<CircleEndResponse>> endCircle(
             @Parameter(description = "UUID of the circle", required = true) @PathVariable UUID circleId,
@@ -94,17 +138,20 @@ public class CircleController {
         return ResponseEntity.ok(ApiResponse.success("Circle ended successfully", response));
     }
 
-    @Operation(summary = "Request to Join a Circle", description = "Submits a join request for approval by the Sheikh. Fails if the user has a time overlap with an existing active circle.")
+    @Operation(summary = "Request to Join a Circle", description = "Submits a join request. For PRIVATE circles, a valid password must be provided. Fails if the user has a time overlap with an existing active circle.")
+    @PreAuthorize("isAuthenticated()")
     @PostMapping("/{circleId}/join")
     public ResponseEntity<ApiResponse<CircleJoinResponse>> joinCircle(
             @Parameter(description = "UUID of the circle", required = true) @PathVariable UUID circleId,
-            @AuthenticationPrincipal AuthUser authUser
+            @AuthenticationPrincipal AuthUser authUser,
+            @RequestBody(required = false) CircleJoinRequest request
     ) {
-        CircleJoinResponse joinResponse = circleService.joinCircle(circleId, authUser.getUser());
-        return ResponseEntity.ok(ApiResponse.success("Join request submitted successfully. Awaiting Sheikh approval.", joinResponse));
+        CircleJoinResponse joinResponse = circleService.joinCircle(circleId, authUser.getUser(), request);
+        return ResponseEntity.ok(ApiResponse.success("Join request submitted successfully.", joinResponse));
     }
 
-    @Operation(summary = "Get Pending Join Requests", description = "Allows the owning Sheikh to view pending join requests for their circle.")
+    @Operation(summary = "Get Pending Join Requests", description = "Allows the owning user to view pending join requests for their circle.")
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/{circleId}/pending-requests")
     public ResponseEntity<ApiResponse<Page<PendingJoinRequestResponse>>> getPendingRequests(
             @Parameter(description = "UUID of the circle", required = true) @PathVariable UUID circleId,
@@ -115,7 +162,8 @@ public class CircleController {
         return ResponseEntity.ok(ApiResponse.success("Pending join requests retrieved successfully", requests));
     }
 
-    @Operation(summary = "Approve Join Request", description = "Allows the owning Sheikh to approve a student's pending join request.")
+    @Operation(summary = "Approve Join Request", description = "Allows the owning user to approve a pending join request.")
+    @PreAuthorize("isAuthenticated()")
     @PostMapping("/{circleId}/approve/{userId}")
     public ResponseEntity<ApiResponse<CircleMemberResponse>> approveRequest(
             @Parameter(description = "UUID of the circle", required = true) @PathVariable UUID circleId,
@@ -126,7 +174,8 @@ public class CircleController {
         return ResponseEntity.ok(ApiResponse.success("Member approved successfully", member));
     }
 
-    @Operation(summary = "Reject Join Request", description = "Allows the owning Sheikh to reject a student's pending join request.")
+    @Operation(summary = "Reject Join Request", description = "Allows the owning user to reject a pending join request.")
+    @PreAuthorize("isAuthenticated()")
     @PostMapping("/{circleId}/reject/{userId}")
     public ResponseEntity<ApiResponse<Void>> rejectRequest(
             @Parameter(description = "UUID of the circle", required = true) @PathVariable UUID circleId,
@@ -138,6 +187,7 @@ public class CircleController {
     }
 
     @Operation(summary = "Leave Circle", description = "Allows a user to leave a circle they are currently active in.")
+    @PreAuthorize("isAuthenticated()")
     @PostMapping("/{circleId}/leave")
     public ResponseEntity<ApiResponse<Void>> leaveCircle(
             @Parameter(description = "UUID of the circle", required = true) @PathVariable UUID circleId,
@@ -147,17 +197,8 @@ public class CircleController {
         return ResponseEntity.ok(ApiResponse.success("Left circle successfully"));
     }
 
-    @Operation(summary = "Get Circle Active Members", description = "Lists all active members in a circle.")
-    @GetMapping("/{circleId}/members")
-    public ResponseEntity<ApiResponse<Page<CircleMemberResponse>>> getMembers(
-            @Parameter(description = "UUID of the circle", required = true) @PathVariable UUID circleId,
-            @ParameterObject @PageableDefault(size = 20, sort = "joinedAt") Pageable pageable
-    ) {
-        Page<CircleMemberResponse> members = circleService.getCircleMembers(circleId, pageable);
-        return ResponseEntity.ok(ApiResponse.success("Members retrieved successfully", members));
-    }
-
-    @Operation(summary = "Remove Member", description = "Allows the owning Sheikh to remove a member from the circle.")
+    @Operation(summary = "Remove Member", description = "Allows the owning user to remove a member from the circle.")
+    @PreAuthorize("isAuthenticated()")
     @DeleteMapping("/{circleId}/members/{userId}")
     public ResponseEntity<ApiResponse<Void>> removeMember(
             @Parameter(description = "UUID of the circle", required = true) @PathVariable UUID circleId,
@@ -169,6 +210,7 @@ public class CircleController {
     }
 
     @Operation(summary = "Get My Active Circles", description = "Retrieve a paginated list of active circles the logged-in user is a member of.")
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/mine")
     public ResponseEntity<ApiResponse<Page<CircleResponse>>> getMyCircles(
             @AuthenticationPrincipal AuthUser authUser,
@@ -176,5 +218,44 @@ public class CircleController {
     ) {
         Page<CircleResponse> page = circleService.getMyCircles(authUser.getUser(), pageable);
         return ResponseEntity.ok(ApiResponse.success("User circles retrieved successfully", page));
+    }
+
+    @Operation(
+            summary = "Get an Agora token to join a Circle's audio/video channel",
+            description = "Owner or an ACTIVE member only. Circle must be ONGOING."
+    )
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/{circleId}/token")
+    public ResponseEntity<ApiResponse<AgoraTokenResponse>> getToken(
+            @Parameter(description = "UUID of the circle", required = true) @PathVariable UUID circleId,
+            @AuthenticationPrincipal AuthUser authUser
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Token retrieved successfully",
+                circleService.getCircleToken(authUser.getUser(), circleId)
+        ));
+    }
+
+    @Operation(summary = "Start Circle", description = "Transitions a SCHEDULED circle to ONGOING. Restricted to the owning user. Members can only get an Agora token once the circle is ONGOING.")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/{circleId}/start")
+    public ResponseEntity<ApiResponse<CircleResponse>> startCircle(
+            @Parameter(description = "UUID of the circle", required = true) @PathVariable UUID circleId,
+            @AuthenticationPrincipal AuthUser authUser
+    ) {
+        CircleResponse circle = circleService.startCircle(circleId, authUser.getUser());
+        return ResponseEntity.ok(ApiResponse.success("Circle started successfully", circle));
+    }
+
+    @Operation(summary = "Get Circle Active Members", description = "Lists all active members in a circle. Private circles require active membership.")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/{circleId}/members")
+    public ResponseEntity<ApiResponse<Page<CircleMemberResponse>>> getMembers(
+            @Parameter(description = "UUID of the circle", required = true) @PathVariable UUID circleId,
+            @AuthenticationPrincipal AuthUser authUser,
+            @ParameterObject @PageableDefault(size = 20, sort = "joinedAt") Pageable pageable
+    ) {
+        Page<CircleMemberResponse> members = circleService.getCircleMembers(circleId, authUser.getUser(), pageable);
+        return ResponseEntity.ok(ApiResponse.success("Members retrieved successfully", members));
     }
 }

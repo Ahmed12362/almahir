@@ -1,6 +1,7 @@
 package com.almahir.iti.model;
 
 import com.almahir.iti.model.enums.CircleStatus;
+import com.almahir.iti.model.enums.CircleType;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -39,6 +40,23 @@ public class Circle {
     @Builder.Default
     private CircleStatus status = CircleStatus.SCHEDULED;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private CircleType type;
+
+    @Column(name = "requires_approval", nullable = false)
+    @Builder.Default
+    private boolean requiresApproval = false;
+
+    @Column(name = "max_participants")
+    private Integer maxParticipants; // null = unlimited
+
+    @Column(name = "password_hash")
+    private String passwordHash; // only set when type == PRIVATE
+
+    @Column(name = "channel_name", nullable = false, unique = true)
+    private String channelName;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
@@ -48,6 +66,9 @@ public class Circle {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Version
+    private Long version;
 
     @PrePersist
     protected void onCreate() {
