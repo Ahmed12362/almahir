@@ -1,6 +1,7 @@
 package com.almahir.iti.service;
 
 import com.almahir.iti.dto.request.CircleCreateRequest;
+import com.almahir.iti.dto.request.CircleJoinRequest;
 import com.almahir.iti.dto.request.CircleUpdateRequest;
 import com.almahir.iti.dto.response.*;
 import com.almahir.iti.model.User;
@@ -25,7 +26,7 @@ public interface CircleService {
 
     CircleEndResponse endCircle(UUID circleId, User currentUser);
 
-    CircleJoinResponse joinCircle(UUID circleId, User currentUser);
+    CircleJoinResponse joinCircle(UUID circleId, User currentUser, CircleJoinRequest request);
 
     Page<PendingJoinRequestResponse> getPendingRequests(UUID circleId, User currentUser, Pageable pageable);
 
@@ -38,4 +39,6 @@ public interface CircleService {
     Page<CircleMemberResponse> getCircleMembers(UUID circleId, Pageable pageable);
 
     void removeMember(UUID circleId, User currentUser, UUID targetUserId);
+
+    AgoraTokenResponse getCircleToken(User currentUser, UUID circleId);
 }

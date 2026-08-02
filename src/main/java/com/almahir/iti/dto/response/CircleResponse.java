@@ -1,6 +1,7 @@
 package com.almahir.iti.dto.response;
 
 import com.almahir.iti.model.enums.CircleStatus;
+import com.almahir.iti.model.enums.CircleType;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -11,7 +12,11 @@ public record CircleResponse(
         LocalDateTime startDate,
         LocalDateTime endDate,
         CircleStatus status,
-        long memberCount,
-        LocalDateTime createdAt
+        CircleType type,
+        boolean requiresApproval,
+        Integer maxParticipants,
+        String channelName,
+        UUID ownerId,
+        long memberCount
 ) {
 }

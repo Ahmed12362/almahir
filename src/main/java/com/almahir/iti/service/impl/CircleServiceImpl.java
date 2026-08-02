@@ -1,6 +1,7 @@
 package com.almahir.iti.service.impl;
 
 import com.almahir.iti.dto.request.CircleCreateRequest;
+import com.almahir.iti.dto.request.CircleJoinRequest;
 import com.almahir.iti.dto.request.CircleUpdateRequest;
 import com.almahir.iti.dto.response.*;
 import com.almahir.iti.exception.ConflictException;
@@ -11,13 +12,18 @@ import com.almahir.iti.model.Circle;
 import com.almahir.iti.model.CircleMembership;
 import com.almahir.iti.model.User;
 import com.almahir.iti.model.enums.CircleStatus;
+import com.almahir.iti.model.enums.CircleType;
 import com.almahir.iti.model.enums.MembershipStatus;
 import com.almahir.iti.model.enums.RoleName;
 import com.almahir.iti.repository.CircleMembershipRepository;
 import com.almahir.iti.repository.CircleRepository;
+import com.almahir.iti.service.AgoraService;
 import com.almahir.iti.service.CircleService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,40 +32,57 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 public class CircleServiceImpl implements CircleService {
+
     private final CircleRepository circleRepository;
     private final CircleMembershipRepository circleMembershipRepository;
     private final CircleMapper circleMapper;
-
-    public CircleServiceImpl(CircleRepository circleRepository,
-                             CircleMembershipRepository circleMembershipRepository,
-                             CircleMapper circleMapper) {
-        this.circleRepository = circleRepository;
-        this.circleMapper = circleMapper;
-        this.circleMembershipRepository = circleMembershipRepository;
-    }
+    private final PasswordEncoder passwordEncoder;
+    private final AgoraService agoraService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Override
     @Transactional
     public CircleResponse createCircle(User currentUser, CircleCreateRequest request) {
-        if (currentUser.getRoles().stream().noneMatch(role -> role.getName() == RoleName.SHEIKH)) {
-            throw new ForbiddenOperationException("Only registered Sheikhs can create a Circle.");
+        boolean isSheikh = currentUser.getRoles().stream()
+                .anyMatch(role -> role.getName() == RoleName.SHEIKH);
+
+        if (request.type() == CircleType.PUBLIC && !isSheikh) {
+            throw new ForbiddenOperationException("Only registered Sheikhs can create a public Circle.");
         }
 
         if (request.startDate().isAfter(request.endDate())) {
             throw new ConflictException("Start date must be before end date");
         }
 
+        String passwordHash = null;
+        boolean requiresApproval = request.requiresApproval();
+
+        if (request.type() == CircleType.PRIVATE) {
+            if (request.password() == null || request.password().isBlank()) {
+                throw new ConflictException("Password is required for a private Circle");
+            }
+            passwordHash = passwordEncoder.encode(request.password());
+            requiresApproval = false;
+        }
+
+        String channelName = "circle_" + UUID.randomUUID().toString().substring(0, 8);
+
         Circle circle = Circle.builder()
                 .title(request.name())
                 .startDate(request.startDate())
                 .endDate(request.endDate())
                 .status(CircleStatus.SCHEDULED)
+                .type(request.type())
+                .requiresApproval(requiresApproval)
+                .maxParticipants(request.maxParticipants())
+                .passwordHash(passwordHash)
+                .channelName(channelName)
                 .owner(currentUser)
                 .build();
 
         circle = circleRepository.save(circle);
-
         return circleMapper.toResponse(circle, 0);
     }
 
@@ -67,8 +90,8 @@ public class CircleServiceImpl implements CircleService {
     @Transactional(readOnly = true)
     public Page<CircleResponse> listCircles(CircleStatus status, Pageable pageable) {
         Page<Circle> circles = (status != null)
-                ? circleRepository.findByStatus(status, pageable)
-                : circleRepository.findAll(pageable);
+                ? circleRepository.findByTypeAndStatus(CircleType.PUBLIC, status, pageable)
+                : circleRepository.findByType(CircleType.PUBLIC, pageable);
 
         return circles.map(circle -> {
             long count = circleMembershipRepository.countByCircleAndStatus(circle, MembershipStatus.ACTIVE);
@@ -133,6 +156,9 @@ public class CircleServiceImpl implements CircleService {
 
         circle.setStatus(CircleStatus.CANCELLED);
         circleRepository.save(circle);
+
+        messagingTemplate.convertAndSend("/topic/circles/" + circleId,
+                new StompEventPayload<>("CIRCLE_CANCELLED", circleId));
     }
 
     @Override
@@ -157,17 +183,28 @@ public class CircleServiceImpl implements CircleService {
         LocalDateTime endedAt = LocalDateTime.now();
         circleRepository.save(circle);
 
+        messagingTemplate.convertAndSend("/topic/circles/" + circleId,
+                new StompEventPayload<>("CIRCLE_ENDED", circleId));
+
         return new CircleEndResponse(CircleStatus.COMPLETED, endedAt);
     }
 
     @Override
     @Transactional
-    public CircleJoinResponse joinCircle(UUID circleId, User currentUser) {
+    public CircleJoinResponse joinCircle(UUID circleId, User currentUser, CircleJoinRequest request) {
         Circle circle = circleRepository.findById(circleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
 
         if (circle.getStatus() == CircleStatus.CANCELLED || circle.getStatus() == CircleStatus.COMPLETED) {
             throw new ConflictException("Cannot join a cancelled or completed circle");
+        }
+
+        if (circle.getType() == CircleType.PRIVATE) {
+            String providedPassword = request != null ? request.password() : null;
+            if (providedPassword == null || providedPassword.isBlank()
+                    || !passwordEncoder.matches(providedPassword, circle.getPasswordHash())) {
+                throw new ForbiddenOperationException("Invalid or missing password for this Circle.");
+            }
         }
 
         circleMembershipRepository.findByCircleAndUser(circle, currentUser).ifPresent(m -> {
@@ -191,18 +228,37 @@ public class CircleServiceImpl implements CircleService {
             ));
         }
 
+        MembershipStatus targetStatus = circle.isRequiresApproval()
+                ? MembershipStatus.PENDING
+                : MembershipStatus.ACTIVE;
+
+        if (targetStatus == MembershipStatus.ACTIVE) {
+            assertHasCapacity(circle);
+        }
+
         CircleMembership membership = circleMembershipRepository.findByCircleAndUser(circle, currentUser)
                 .orElseGet(() -> CircleMembership.builder()
                         .circle(circle)
                         .user(currentUser)
                         .build());
 
-        membership.setStatus(MembershipStatus.PENDING);
+        membership.setStatus(targetStatus);
         membership.setJoinedAt(LocalDateTime.now());
         membership.setRemovedAt(null);
         membership.setRemovedBy(null);
 
         CircleMembership saved = circleMembershipRepository.save(membership);
+
+        if (targetStatus == MembershipStatus.PENDING) {
+            // Notify the owner: a new join request is waiting for approval
+            messagingTemplate.convertAndSend("/topic/circles/" + circleId + "/requests",
+                    new StompEventPayload<>("CIRCLE_JOIN_REQUEST_RECEIVED", circleMapper.toPendingResponse(saved)));
+        } else {
+            // Auto-approved: notify everyone already in the circle
+            messagingTemplate.convertAndSend("/topic/circles/" + circleId,
+                    new StompEventPayload<>("MEMBER_JOINED", circleMapper.toMemberResponse(saved)));
+        }
+
         return circleMapper.toJoinResponse(saved);
     }
 
@@ -231,9 +287,26 @@ public class CircleServiceImpl implements CircleService {
             throw new ConflictException("Cannot approve request: user has an overlapping active circle");
         }
 
+        assertHasCapacity(circle);
+
         membership.setStatus(MembershipStatus.ACTIVE);
-        circleMembershipRepository.save(membership);
-        return circleMapper.toMemberResponse(membership);
+        CircleMembership saved = circleMembershipRepository.save(membership);
+
+        CircleMemberResponse response = circleMapper.toMemberResponse(saved);
+
+        // Tell the requester directly: they're in
+        messagingTemplate.convertAndSend("/topic/circle-memberships/" + saved.getId(),
+                new StompEventPayload<>("REQUEST_APPROVED", response));
+
+        // Remove from the owner's pending list view
+        messagingTemplate.convertAndSend("/topic/circles/" + circleId + "/requests",
+                new StompEventPayload<>("CIRCLE_JOIN_REQUEST_REMOVED", saved.getId()));
+
+        // Tell existing members someone new joined
+        messagingTemplate.convertAndSend("/topic/circles/" + circleId,
+                new StompEventPayload<>("MEMBER_JOINED", response));
+
+        return response;
     }
 
     @Override
@@ -255,6 +328,12 @@ public class CircleServiceImpl implements CircleService {
 
         membership.setStatus(MembershipStatus.REJECTED);
         circleMembershipRepository.save(membership);
+
+        messagingTemplate.convertAndSend("/topic/circle-memberships/" + membership.getId(),
+                new StompEventPayload<>("REQUEST_REJECTED", "Rejected by circle owner"));
+
+        messagingTemplate.convertAndSend("/topic/circles/" + circleId + "/requests",
+                new StompEventPayload<>("CIRCLE_JOIN_REQUEST_REMOVED", membership.getId()));
     }
 
     @Override
@@ -284,6 +363,9 @@ public class CircleServiceImpl implements CircleService {
         membership.setStatus(MembershipStatus.LEFT);
         membership.setEndedAt(LocalDateTime.now());
         circleMembershipRepository.save(membership);
+
+        messagingTemplate.convertAndSend("/topic/circles/" + circleId,
+                new StompEventPayload<>("MEMBER_LEFT", currentUser.getId()));
     }
 
     @Override
@@ -314,5 +396,41 @@ public class CircleServiceImpl implements CircleService {
         membership.setEndedAt(LocalDateTime.now());
         membership.setRemovedBy(currentUser);
         circleMembershipRepository.save(membership);
+
+        messagingTemplate.convertAndSend("/topic/circles/" + circleId,
+                new StompEventPayload<>("MEMBER_REMOVED", targetUserId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AgoraTokenResponse getCircleToken(User currentUser, UUID circleId) {
+        Circle circle = circleRepository.findById(circleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
+
+        if (circle.getStatus() == CircleStatus.CANCELLED || circle.getStatus() == CircleStatus.COMPLETED) {
+            throw new ConflictException("This circle is not active.");
+        }
+
+        boolean isOwner = circle.getOwner().getId().equals(currentUser.getId());
+        boolean isActiveMember = isOwner || circleMembershipRepository
+                .findByCircleAndUserAndStatus(circle, currentUser, MembershipStatus.ACTIVE)
+                .isPresent();
+
+        if (!isActiveMember) {
+            throw new ForbiddenOperationException("You are not an active member of this Circle.");
+        }
+
+        String token = agoraService.generateToken(circle.getChannelName(), currentUser.getId());
+        return new AgoraTokenResponse(token, circle.getChannelName(), currentUser.getId().toString());
+    }
+
+    private void assertHasCapacity(Circle circle) {
+        if (circle.getMaxParticipants() == null) {
+            return;
+        }
+        long activeCount = circleMembershipRepository.countByCircleAndStatus(circle, MembershipStatus.ACTIVE);
+        if (activeCount >= circle.getMaxParticipants()) {
+            throw new ConflictException("This circle has reached its maximum number of participants.");
+        }
     }
 }

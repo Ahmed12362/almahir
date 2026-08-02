@@ -1,6 +1,7 @@
 package com.almahir.iti.controller;
 
 import com.almahir.iti.dto.request.CircleCreateRequest;
+import com.almahir.iti.dto.request.CircleJoinRequest;
 import com.almahir.iti.dto.request.CircleUpdateRequest;
 import com.almahir.iti.dto.response.*;
 import com.almahir.iti.model.AuthUser;
@@ -94,14 +95,15 @@ public class CircleController {
         return ResponseEntity.ok(ApiResponse.success("Circle ended successfully", response));
     }
 
-    @Operation(summary = "Request to Join a Circle", description = "Submits a join request for approval by the Sheikh. Fails if the user has a time overlap with an existing active circle.")
+    @Operation(summary = "Request to Join a Circle", description = "Submits a join request. For PRIVATE circles, a valid password must be provided. Fails if the user has a time overlap with an existing active circle.")
     @PostMapping("/{circleId}/join")
     public ResponseEntity<ApiResponse<CircleJoinResponse>> joinCircle(
             @Parameter(description = "UUID of the circle", required = true) @PathVariable UUID circleId,
-            @AuthenticationPrincipal AuthUser authUser
+            @AuthenticationPrincipal AuthUser authUser,
+            @RequestBody(required = false) CircleJoinRequest request
     ) {
-        CircleJoinResponse joinResponse = circleService.joinCircle(circleId, authUser.getUser());
-        return ResponseEntity.ok(ApiResponse.success("Join request submitted successfully. Awaiting Sheikh approval.", joinResponse));
+        CircleJoinResponse joinResponse = circleService.joinCircle(circleId, authUser.getUser(), request);
+        return ResponseEntity.ok(ApiResponse.success("Join request submitted successfully.", joinResponse));
     }
 
     @Operation(summary = "Get Pending Join Requests", description = "Allows the owning Sheikh to view pending join requests for their circle.")
@@ -176,5 +178,20 @@ public class CircleController {
     ) {
         Page<CircleResponse> page = circleService.getMyCircles(authUser.getUser(), pageable);
         return ResponseEntity.ok(ApiResponse.success("User circles retrieved successfully", page));
+    }
+
+    @Operation(
+            summary = "Get an Agora token to join a Circle's audio/video channel",
+            description = "Owner or an ACTIVE member only. Circle must not be CANCELLED or COMPLETED."
+    )
+    @GetMapping("/{circleId}/token")
+    public ResponseEntity<ApiResponse<AgoraTokenResponse>> getToken(
+            @Parameter(description = "UUID of the circle", required = true) @PathVariable UUID circleId,
+            @AuthenticationPrincipal AuthUser authUser
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Token retrieved successfully",
+                circleService.getCircleToken(authUser.getUser(), circleId)
+        ));
     }
 }
