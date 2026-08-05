@@ -5,6 +5,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.core.PropertyReferenceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -179,6 +180,17 @@ public class GlobalExceptionHandler {
                         false,
                         "Validation failed.",
                         fieldErrors,
+                        Instant.now()
+                ));
+    }
+
+    @ExceptionHandler(PropertyReferenceException.class)
+    public ResponseEntity<ErrorResponse> handlePropertyReference(PropertyReferenceException ex) {
+        return ResponseEntity.badRequest()
+                .body(new ErrorResponse(
+                        false,
+                        "Invalid sort field: '" + ex.getPropertyName() + "' does not exist on this resource.",
+                        null,
                         Instant.now()
                 ));
     }

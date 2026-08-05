@@ -6,6 +6,7 @@ import com.almahir.iti.dto.request.CircleUpdateRequest;
 import com.almahir.iti.dto.response.*;
 import com.almahir.iti.model.AuthUser;
 import com.almahir.iti.model.enums.CircleStatus;
+import com.almahir.iti.model.enums.MembershipStatus;
 import com.almahir.iti.service.CircleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -16,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +25,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -214,7 +217,7 @@ public class CircleController {
     @GetMapping("/mine")
     public ResponseEntity<ApiResponse<Page<CircleResponse>>> getMyCircles(
             @AuthenticationPrincipal AuthUser authUser,
-            @ParameterObject @PageableDefault(size = 20, sort = "startDate") Pageable pageable
+            @ParameterObject @PageableDefault(size = 20, sort = "circle.startDate") Pageable pageable
     ) {
         Page<CircleResponse> page = circleService.getMyCircles(authUser.getUser(), pageable);
         return ResponseEntity.ok(ApiResponse.success("User circles retrieved successfully", page));
@@ -257,5 +260,21 @@ public class CircleController {
     ) {
         Page<CircleMemberResponse> members = circleService.getCircleMembers(circleId, authUser.getUser(), pageable);
         return ResponseEntity.ok(ApiResponse.success("Members retrieved successfully", members));
+    }
+    @Operation(
+            summary = "Get My Circle History",
+            description = "Retrieve a paginated list of circles the logged-in user has been a member of, past or present. " +
+                    "Optionally filter by membership status (e.g., ACTIVE, LEFT, REMOVED). Defaults to ACTIVE, LEFT, and REMOVED."
+    )
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/history")
+    public ResponseEntity<ApiResponse<PageResponse<CircleResponse>>> getCircleHistory(
+            @AuthenticationPrincipal AuthUser authUser,
+            @Parameter(description = "Filter by membership status. Defaults to ACTIVE, LEFT, REMOVED.")
+            @RequestParam(required = false) List<MembershipStatus> status,
+            @ParameterObject @PageableDefault(size = 20, sort = "circle.startDate", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
+        Page<CircleResponse> page = circleService.getCircleHistory(authUser.getUser(), status, pageable);
+        return ResponseEntity.ok(ApiResponse.success("Circle history retrieved successfully", PageResponse.from(page)));
     }
 }
