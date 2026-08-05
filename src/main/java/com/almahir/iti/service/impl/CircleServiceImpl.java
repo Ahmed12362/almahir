@@ -29,7 +29,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -89,24 +91,32 @@ public class CircleServiceImpl implements CircleService {
     @Override
     @Transactional(readOnly = true)
     public Page<CircleResponse> listCircles(CircleStatus status, Pageable pageable) {
-        Page<Circle> circles = (status != null)
+        Page<Circle> circlesPage = (status != null)
                 ? circleRepository.findByTypeAndStatus(CircleType.PUBLIC, status, pageable)
                 : circleRepository.findByType(CircleType.PUBLIC, pageable);
 
-        return circles.map(circle -> {
-            long count = circleMembershipRepository.countByCircleAndStatus(circle, MembershipStatus.ACTIVE);
-            return circleMapper.toResponse(circle, count);
-        });
+        Map<UUID, Long> countMap = getActiveMemberCounts(circlesPage.getContent());
+
+        return circlesPage.map(circle ->
+                circleMapper.toResponse(circle, countMap.getOrDefault(circle.getId(), 0L))
+        );
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<CircleResponse> getMyCircles(User currentUser, Pageable pageable) {
-        return circleMembershipRepository.findByUserAndStatus(currentUser, MembershipStatus.ACTIVE, pageable)
-                .map(cm -> {
-                    long count = circleMembershipRepository.countByCircleAndStatus(cm.getCircle(), MembershipStatus.ACTIVE);
-                    return circleMapper.toResponse(cm.getCircle(), count);
-                });
+        Page<CircleMembership> memberships = circleMembershipRepository
+                .findByUserAndStatus(currentUser, MembershipStatus.ACTIVE, pageable);
+
+        List<Circle> circles = memberships.getContent().stream()
+                .map(CircleMembership::getCircle)
+                .toList();
+
+        Map<UUID, Long> countMap = getActiveMemberCounts(circles);
+
+        return memberships.map(cm ->
+                circleMapper.toResponse(cm.getCircle(), countMap.getOrDefault(cm.getCircle().getId(), 0L))
+        );
     }
 
     @Override
@@ -456,6 +466,42 @@ public class CircleServiceImpl implements CircleService {
 
         return circleMembershipRepository.findByCircleAndStatusOrderByJoinedAtAsc(circle, MembershipStatus.ACTIVE, pageable)
                 .map(circleMapper::toMemberResponse);
+    }
+
+    private static final List<MembershipStatus> DEFAULT_HISTORY_STATUSES =
+            List.of(MembershipStatus.ACTIVE, MembershipStatus.LEFT, MembershipStatus.REMOVED);
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<CircleResponse> getCircleHistory(User currentUser, List<MembershipStatus> statuses, Pageable pageable) {
+        List<MembershipStatus> effectiveStatuses = (statuses == null || statuses.isEmpty())
+                ? DEFAULT_HISTORY_STATUSES
+                : statuses;
+
+        Page<CircleMembership> memberships = circleMembershipRepository
+                .findByUserAndStatusIn(currentUser, effectiveStatuses, pageable);
+
+        List<Circle> circles = memberships.getContent().stream()
+                .map(CircleMembership::getCircle)
+                .toList();
+
+        Map<UUID, Long> countMap = getActiveMemberCounts(circles);
+
+        return memberships.map(cm ->
+                circleMapper.toResponse(cm.getCircle(), countMap.getOrDefault(cm.getCircle().getId(), 0L))
+        );
+    }
+
+    private Map<UUID, Long> getActiveMemberCounts(List<Circle> circles) {
+        if (circles.isEmpty()) {
+            return Map.of();
+        }
+        return circleMembershipRepository.countActiveMembersGroupedByCircle(circles, MembershipStatus.ACTIVE)
+                .stream()
+                .collect(Collectors.toMap(
+                        row -> (UUID) row[0],
+                        row -> (Long) row[1]
+                ));
     }
 
     private void assertHasCapacity(Circle circle) {

@@ -6,9 +6,11 @@ import com.almahir.iti.dto.request.CircleUpdateRequest;
 import com.almahir.iti.dto.response.*;
 import com.almahir.iti.model.User;
 import com.almahir.iti.model.enums.CircleStatus;
+import com.almahir.iti.model.enums.MembershipStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface CircleService {
@@ -43,4 +45,6 @@ public interface CircleService {
     CircleResponse startCircle(UUID circleId, User currentUser);
 
     Page<CircleMemberResponse> getCircleMembers(UUID circleId, User currentUser, Pageable pageable);
+
+    Page<CircleResponse> getCircleHistory(User currentUser, List<MembershipStatus> statuses, Pageable pageable);
 }

@@ -33,6 +33,18 @@ public interface CircleMembershipRepository extends JpaRepository<CircleMembersh
     long countByCircleAndStatus(Circle circle, MembershipStatus status);
 
     @Query("""
+            SELECT c.id, COUNT(cm)
+            FROM CircleMembership cm
+            JOIN cm.circle c
+            WHERE cm.circle IN :circles AND cm.status = :status
+            GROUP BY c.id
+            """)
+    List<Object[]> countActiveMembersGroupedByCircle(
+            @Param("circles") List<Circle> circles,
+            @Param("status") MembershipStatus status
+    );
+
+    @Query("""
             SELECT cm FROM CircleMembership cm
             JOIN cm.circle c
             WHERE cm.user = :user
@@ -46,4 +58,5 @@ public interface CircleMembershipRepository extends JpaRepository<CircleMembersh
             @Param("endDate") LocalDateTime endDate
     );
 
+    Page<CircleMembership> findByUserAndStatusIn(User user, List<MembershipStatus> statuses, Pageable pageable);
 }
