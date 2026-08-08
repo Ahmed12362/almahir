@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.UUID;
 
 public interface CircleService {
-    CircleResponse createCircle(User currentUser, CircleCreateRequest request);
+    CircleHostResponse createCircle(User currentUser, CircleCreateRequest request);
 
     Page<CircleResponse> listCircles(CircleStatus status, Pageable pageable);
 
@@ -29,6 +29,8 @@ public interface CircleService {
     CircleEndResponse endCircle(UUID circleId, User currentUser);
 
     CircleJoinResponse joinCircle(UUID circleId, User currentUser, CircleJoinRequest request);
+
+    CircleJoinResponse joinCircleByToken(String inviteToken, User currentUser);
 
     Page<PendingJoinRequestResponse> getPendingRequests(UUID circleId, User currentUser, Pageable pageable);
 
@@ -48,5 +50,5 @@ public interface CircleService {
 
     Page<CircleResponse> getCircleHistory(User currentUser, List<MembershipStatus> statuses, Pageable pageable);
 
-    Page<CircleResponse> getAllPrivateCircleForHost(User currentUser, CircleStatus status, Pageable pageable);
+    Page<CircleHostResponse> getAllPrivateCircleForHost(User currentUser, CircleStatus status, Pageable pageable);
 }
