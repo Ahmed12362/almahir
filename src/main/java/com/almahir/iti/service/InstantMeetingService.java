@@ -3,9 +3,11 @@ package com.almahir.iti.service;
 import com.almahir.iti.dto.request.SheikhAvailabilityRequest;
 import com.almahir.iti.dto.response.*;
 import com.almahir.iti.model.User;
+import com.almahir.iti.model.enums.MeetingRequestStatus;
 import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface InstantMeetingService {
@@ -31,5 +33,7 @@ public interface InstantMeetingService {
     @Transactional
     void endMeeting(User currentUser, UUID requestId);
 
-    PageResponse<StudentMeetingHistoryResponse> getStudentMeetingHistory(User currentUser, Pageable pageable);
+    PageResponse<StudentMeetingHistoryResponse> getStudentMeetingHistory(User currentUser, List<MeetingRequestStatus> statuses, Pageable pageable);
+
+    PageResponse<SheikhMeetingHistoryResponse> getSheikhMeetingHistory(User currentUser, List<MeetingRequestStatus> statuses, Pageable pageable);
 }
