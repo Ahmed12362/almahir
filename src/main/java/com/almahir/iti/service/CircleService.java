@@ -47,4 +47,6 @@ public interface CircleService {
     Page<CircleMemberResponse> getCircleMembers(UUID circleId, User currentUser, Pageable pageable);
 
     Page<CircleResponse> getCircleHistory(User currentUser, List<MembershipStatus> statuses, Pageable pageable);
+
+    Page<CircleResponse> getAllPrivateCircleForHost(User currentUser, CircleStatus status, Pageable pageable);
 }

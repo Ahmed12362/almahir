@@ -18,4 +18,7 @@ public interface CircleRepository extends JpaRepository<Circle, UUID> {
     Page<Circle> findByType(CircleType type, Pageable pageable);
 
     Page<Circle> findByOwner(User owner, Pageable pageable);
+    Page<Circle> findByOwnerAndType(User owner, CircleType type, Pageable pageable);
+
+    Page<Circle> findByOwnerAndTypeAndStatus(User owner, CircleType type, CircleStatus status, Pageable pageable);
 }

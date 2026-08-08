@@ -492,6 +492,20 @@ public class CircleServiceImpl implements CircleService {
         );
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Page<CircleResponse> getAllPrivateCircleForHost(User currentUser, CircleStatus status, Pageable pageable) {
+        Page<Circle> circlesPage = (status != null)
+                ? circleRepository.findByOwnerAndTypeAndStatus(currentUser, CircleType.PRIVATE, status, pageable)
+                : circleRepository.findByOwnerAndType(currentUser, CircleType.PRIVATE, pageable);
+
+        Map<UUID, Long> countMap = getActiveMemberCounts(circlesPage.getContent());
+
+        return circlesPage.map(circle ->
+                circleMapper.toResponse(circle, countMap.getOrDefault(circle.getId(), 0L))
+        );
+    }
+
     private Map<UUID, Long> getActiveMemberCounts(List<Circle> circles) {
         if (circles.isEmpty()) {
             return Map.of();
