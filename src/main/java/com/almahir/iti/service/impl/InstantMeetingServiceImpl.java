@@ -347,15 +347,40 @@ public class InstantMeetingServiceImpl implements InstantMeetingService {
                 new StompEventPayload<>("MEETING_ENDED", requestId));
     }
 
+    private static final List<MeetingRequestStatus> DEFAULT_HISTORY_STATUSES =
+            List.of(MeetingRequestStatus.ENDED, MeetingRequestStatus.DECLINED,
+                    MeetingRequestStatus.CANCELLED, MeetingRequestStatus.EXPIRED);
+
+
     @Override
     @Transactional(readOnly = true)
-    public PageResponse<StudentMeetingHistoryResponse> getStudentMeetingHistory(User currentUser, Pageable pageable) {
+    public PageResponse<StudentMeetingHistoryResponse> getStudentMeetingHistory(User currentUser, List<MeetingRequestStatus> statuses, Pageable pageable) {
         Student student = studentRepository.findById(currentUser.getId())
                 .orElseThrow(() -> new ForbiddenOperationException("Only registered students can view meeting history."));
 
+        List<MeetingRequestStatus> effectiveStatuses = (statuses == null || statuses.isEmpty())
+                ? DEFAULT_HISTORY_STATUSES
+                : statuses;
+
         Page<MeetingRequest> history = meetingRequestRepository
-                .findByStudentAndStatusOrderByEndedAtDesc(student, MeetingRequestStatus.ENDED, pageable);
+                .findByStudentAndStatusIn(student, effectiveStatuses, pageable);
 
         return PageResponse.from(history.map(meetingRequestMapper::toStudentHistoryResponse));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<SheikhMeetingHistoryResponse> getSheikhMeetingHistory(User currentUser, List<MeetingRequestStatus> statuses, Pageable pageable) {
+        Sheikh sheikh = sheikhRepository.findById(currentUser.getId())
+                .orElseThrow(() -> new ForbiddenOperationException("Only registered Sheikhs can view meeting history."));
+
+        List<MeetingRequestStatus> effectiveStatuses = (statuses == null || statuses.isEmpty())
+                ? DEFAULT_HISTORY_STATUSES
+                : statuses;
+
+        Page<MeetingRequest> history = meetingRequestRepository
+                .findBySheikhAndStatusIn(sheikh, effectiveStatuses, pageable);
+
+        return PageResponse.from(history.map(meetingRequestMapper::toSheikhHistoryResponse));
     }
 }

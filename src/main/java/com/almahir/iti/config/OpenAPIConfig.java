@@ -1,5 +1,6 @@
 package com.almahir.iti.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
@@ -42,4 +43,9 @@ public class OpenAPIConfig {
                                 .scheme("bearer")
                                 .bearerFormat("JWT")));
     }
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
+    }
+
 }

@@ -1,6 +1,7 @@
 package com.almahir.iti.mapper;
 
 import com.almahir.iti.dto.request.CircleCreateRequest;
+import com.almahir.iti.dto.response.CircleHostResponse;
 import com.almahir.iti.dto.response.CircleJoinResponse;
 import com.almahir.iti.dto.response.CircleMemberResponse;
 import com.almahir.iti.dto.response.CircleResponse;
@@ -25,6 +26,20 @@ public interface CircleMapper {
     @Mapping(target = "ownerId", source = "circle.owner.id")
     @Mapping(target = "memberCount", source = "memberCount")
     CircleResponse toResponse(Circle circle, long memberCount);
+
+    @Mapping(target = "circleId", source = "circle.id")
+    @Mapping(target = "title", source = "circle.title")
+    @Mapping(target = "startDate", source = "circle.startDate")
+    @Mapping(target = "endDate", source = "circle.endDate")
+    @Mapping(target = "status", source = "circle.status")
+    @Mapping(target = "type", source = "circle.type")
+    @Mapping(target = "requiresApproval", source = "circle.requiresApproval")
+    @Mapping(target = "maxParticipants", source = "circle.maxParticipants")
+    @Mapping(target = "channelName", source = "circle.channelName")
+    @Mapping(target = "ownerId", source = "circle.owner.id")
+    @Mapping(target = "memberCount", source = "memberCount")
+    @Mapping(target = "inviteToken", source = "circle.inviteToken")
+    CircleHostResponse toHostResponse(Circle circle, long memberCount);
 
     @Mapping(target = "id", source = "user.id")
     @Mapping(target = "username", source = "user.username")

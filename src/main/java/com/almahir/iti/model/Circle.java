@@ -70,6 +70,9 @@ public class Circle {
     @Version
     private Long version;
 
+    @Column(unique = true)
+    private String inviteToken;
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();

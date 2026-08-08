@@ -3,6 +3,7 @@ package com.almahir.iti.controller;
 import com.almahir.iti.dto.request.SheikhAvailabilityRequest;
 import com.almahir.iti.dto.response.*;
 import com.almahir.iti.model.AuthUser;
+import com.almahir.iti.model.enums.MeetingRequestStatus;
 import com.almahir.iti.service.InstantMeetingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -14,12 +15,14 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -265,6 +268,7 @@ public class InstantMeetingController {
         instantMeetingService.endMeeting(authUser.getUser(), requestId);
         return ResponseEntity.ok(ApiResponse.success("Meeting ended successfully"));
     }
+
     @Operation(
             summary = "Get pending meeting requests sent to the current Sheikh",
             description = "Sheikh only. Returns all currently PENDING requests so the Sheikh can pick one to accept/decline. Call this when opening the requests screen (the WebSocket topic handles live updates while the screen is open)."
@@ -287,6 +291,7 @@ public class InstantMeetingController {
                 instantMeetingService.getPendingRequests(authUser.getUser(), pageable)
         ));
     }
+
     @Operation(
             summary = "Get the current student's completed meeting history",
             description = "Student only. Returns meetings that have ended (ENDED status), most recent first."
@@ -303,10 +308,23 @@ public class InstantMeetingController {
     @GetMapping("/student/history")
     public ResponseEntity<ApiResponse<PageResponse<StudentMeetingHistoryResponse>>> getStudentHistory(
             @AuthenticationPrincipal AuthUser authUser,
-            @ParameterObject @PageableDefault(size = 10) Pageable pageable) {
+            @RequestParam(required = false) List<MeetingRequestStatus> status,
+            @ParameterObject @PageableDefault(size = 10, sort = "requestedAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.success(
                 "Meeting history retrieved successfully",
-                instantMeetingService.getStudentMeetingHistory(authUser.getUser(), pageable)
+                instantMeetingService.getStudentMeetingHistory(authUser.getUser(), status, pageable)
+        ));
+    }
+
+    @PreAuthorize("hasRole('SHEIKH')")
+    @GetMapping("/sheikh/history")
+    public ResponseEntity<ApiResponse<PageResponse<SheikhMeetingHistoryResponse>>> getSheikhHistory(
+            @AuthenticationPrincipal AuthUser authUser,
+            @RequestParam(required = false) List<MeetingRequestStatus> status,
+            @ParameterObject @PageableDefault(size = 10, sort = "requestedAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Meeting history retrieved successfully",
+                instantMeetingService.getSheikhMeetingHistory(authUser.getUser(), status, pageable)
         ));
     }
 }

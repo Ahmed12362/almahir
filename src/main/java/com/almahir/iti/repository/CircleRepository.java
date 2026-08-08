@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -18,4 +19,12 @@ public interface CircleRepository extends JpaRepository<Circle, UUID> {
     Page<Circle> findByType(CircleType type, Pageable pageable);
 
     Page<Circle> findByOwner(User owner, Pageable pageable);
+
+    Page<Circle> findByOwnerAndType(User owner, CircleType type, Pageable pageable);
+
+    Page<Circle> findByOwnerAndTypeAndStatus(User owner, CircleType type, CircleStatus status, Pageable pageable);
+
+    Optional<Circle> findByInviteToken(String inviteToken);
+
+    boolean existsByInviteToken(String inviteToken);
 }

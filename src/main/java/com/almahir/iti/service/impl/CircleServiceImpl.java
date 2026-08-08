@@ -46,7 +46,7 @@ public class CircleServiceImpl implements CircleService {
 
     @Override
     @Transactional
-    public CircleResponse createCircle(User currentUser, CircleCreateRequest request) {
+    public CircleHostResponse createCircle(User currentUser, CircleCreateRequest request) {
         boolean isSheikh = currentUser.getRoles().stream()
                 .anyMatch(role -> role.getName() == RoleName.SHEIKH);
 
@@ -59,6 +59,7 @@ public class CircleServiceImpl implements CircleService {
         }
 
         String passwordHash = null;
+        String inviteToken = null;
         boolean requiresApproval = request.requiresApproval();
 
         if (request.type() == CircleType.PRIVATE) {
@@ -66,7 +67,8 @@ public class CircleServiceImpl implements CircleService {
                 throw new ConflictException("Password is required for a private Circle");
             }
             passwordHash = passwordEncoder.encode(request.password());
-            requiresApproval = false;
+//            requiresApproval = false;
+            inviteToken = generateUniqueInviteToken();
         }
 
         String channelName = "circle_" + UUID.randomUUID().toString().substring(0, 8);
@@ -80,12 +82,13 @@ public class CircleServiceImpl implements CircleService {
                 .requiresApproval(requiresApproval)
                 .maxParticipants(request.maxParticipants())
                 .passwordHash(passwordHash)
+                .inviteToken(inviteToken)
                 .channelName(channelName)
                 .owner(currentUser)
                 .build();
 
         circle = circleRepository.save(circle);
-        return circleMapper.toResponse(circle, 0);
+        return circleMapper.toHostResponse(circle, 0);
     }
 
     @Override
@@ -205,16 +208,29 @@ public class CircleServiceImpl implements CircleService {
         Circle circle = circleRepository.findById(circleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Circle not found."));
 
-        if (circle.getStatus() == CircleStatus.CANCELLED || circle.getStatus() == CircleStatus.COMPLETED) {
-            throw new ConflictException("Cannot join a cancelled or completed circle");
-        }
-
         if (circle.getType() == CircleType.PRIVATE) {
             String providedPassword = request != null ? request.password() : null;
             if (providedPassword == null || providedPassword.isBlank()
                     || !passwordEncoder.matches(providedPassword, circle.getPasswordHash())) {
                 throw new ForbiddenOperationException("Invalid or missing password for this Circle.");
             }
+        }
+
+        return processJoin(circle, currentUser);
+    }
+
+    @Override
+    @Transactional
+    public CircleJoinResponse joinCircleByToken(String inviteToken, User currentUser) {
+        Circle circle = circleRepository.findByInviteToken(inviteToken)
+                .orElseThrow(() -> new ResourceNotFoundException("Invalid or expired invite link."));
+
+        return processJoin(circle, currentUser);
+    }
+
+    private CircleJoinResponse processJoin(Circle circle, User currentUser) {
+        if (circle.getStatus() == CircleStatus.CANCELLED || circle.getStatus() == CircleStatus.COMPLETED) {
+            throw new ConflictException("Cannot join a cancelled or completed circle");
         }
 
         circleMembershipRepository.findByCircleAndUser(circle, currentUser).ifPresent(m -> {
@@ -260,12 +276,10 @@ public class CircleServiceImpl implements CircleService {
         CircleMembership saved = circleMembershipRepository.save(membership);
 
         if (targetStatus == MembershipStatus.PENDING) {
-            // Notify the owner: a new join request is waiting for approval
-            messagingTemplate.convertAndSend("/topic/circles/" + circleId + "/requests",
+            messagingTemplate.convertAndSend("/topic/circles/" + circle.getId() + "/requests",
                     new StompEventPayload<>("CIRCLE_JOIN_REQUEST_RECEIVED", circleMapper.toPendingResponse(saved)));
         } else {
-            // Auto-approved: notify everyone already in the circle
-            messagingTemplate.convertAndSend("/topic/circles/" + circleId,
+            messagingTemplate.convertAndSend("/topic/circles/" + circle.getId(),
                     new StompEventPayload<>("MEMBER_JOINED", circleMapper.toMemberResponse(saved)));
         }
 
@@ -492,6 +506,20 @@ public class CircleServiceImpl implements CircleService {
         );
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Page<CircleHostResponse> getAllPrivateCircleForHost(User currentUser, CircleStatus status, Pageable pageable) {
+        Page<Circle> circlesPage = (status != null)
+                ? circleRepository.findByOwnerAndTypeAndStatus(currentUser, CircleType.PRIVATE, status, pageable)
+                : circleRepository.findByOwnerAndType(currentUser, CircleType.PRIVATE, pageable);
+
+        Map<UUID, Long> countMap = getActiveMemberCounts(circlesPage.getContent());
+
+        return circlesPage.map(circle ->
+                circleMapper.toHostResponse(circle, countMap.getOrDefault(circle.getId(), 0L))
+        );
+    }
+
     private Map<UUID, Long> getActiveMemberCounts(List<Circle> circles) {
         if (circles.isEmpty()) {
             return Map.of();
@@ -512,5 +540,13 @@ public class CircleServiceImpl implements CircleService {
         if (activeCount >= circle.getMaxParticipants()) {
             throw new ConflictException("This circle has reached its maximum number of participants.");
         }
+    }
+
+    private String generateUniqueInviteToken() {
+        String token;
+        do {
+            token = UUID.randomUUID().toString().replace("-", "").substring(0, 6);
+        } while (circleRepository.existsByInviteToken(token));
+        return token;
     }
 }
