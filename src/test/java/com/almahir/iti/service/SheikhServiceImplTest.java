@@ -165,6 +165,7 @@ class SheikhServiceImplTest {
                 "Mohamed Ali",
                 null,
                 null,
+                Gender.MALE,
                 "01112345678",
                 null,
                 SheikhStatus.BUSY
