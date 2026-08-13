@@ -23,6 +23,8 @@ public class User {
     private String firstName;
     @Column(nullable = false)
     private String lastName;
+    @Enumerated(EnumType.STRING)
+    private com.almahir.iti.model.enums.Gender gender;
     @Column(nullable = true)
     private String password;
 

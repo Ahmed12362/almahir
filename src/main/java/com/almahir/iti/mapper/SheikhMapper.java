@@ -12,6 +12,7 @@ public interface SheikhMapper {
     @Mapping(target = "username", source = "sheikh.user.username")
     @Mapping(target = "firstName", source = "sheikh.user.firstName")
     @Mapping(target = "lastName", source = "sheikh.user.lastName")
+    @Mapping(target = "gender", source = "sheikh.user.gender")
     @Mapping(target = "email", source = "sheikh.user.email")
     @Mapping(target = "phoneNumber", source = "sheikh.user.phoneNumber")
     @Mapping(target = "profilePictureUrl", source = "sheikh.user.profilePictureUrl")

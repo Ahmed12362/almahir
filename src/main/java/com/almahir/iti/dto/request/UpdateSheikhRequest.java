@@ -1,5 +1,6 @@
 package com.almahir.iti.dto.request;
 
+import com.almahir.iti.model.enums.Gender;
 import com.almahir.iti.model.enums.SheikhStatus;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -13,6 +14,8 @@ public record UpdateSheikhRequest(
         String firstName,
 
         String lastName,
+
+        Gender gender,
 
         @Pattern(
                 regexp = "^(\\+20|0)?1[0125]\\d{8}$",

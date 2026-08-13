@@ -34,19 +34,18 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
     public void generateAndSendOtp(String email) {
         int otp = 100000 + new Random().nextInt(800000);
 
-        ForgotPassword forgotPassword = ForgotPassword.builder()
-                .email(email)
-                .otp(otp)
-                .timeToLive(300)
-                .build();
-        forgotPasswordRepository.save(forgotPassword);
-
         MailBody mailBody = MailBody.builder()
                 .to(email)
                 .subject("Password Reset OTP")
                 .text("This is the OTP for password reset: " + otp)
                 .build();
         emailService.sendEmail(mailBody);
+
+        ForgotPassword forgotPassword = ForgotPassword.builder()
+                .email(email)
+                .otp(otp)
+                .build();
+        forgotPasswordRepository.save(forgotPassword);
     }
 
     @Override

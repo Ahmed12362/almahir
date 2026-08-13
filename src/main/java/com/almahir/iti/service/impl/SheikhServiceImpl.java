@@ -120,6 +120,10 @@ public class SheikhServiceImpl implements SheikhService {
                 }
             }
 
+            if (request.gender() != null) {
+                user.setGender(request.gender());
+            }
+
             if (StringUtils.hasText(request.phoneNumber())) {
                 user.setPhoneNumber(request.phoneNumber().trim());
             }
@@ -154,6 +158,7 @@ public class SheikhServiceImpl implements SheikhService {
                 user.getUsername(),
                 user.getFirstName(),
                 user.getLastName(),
+                user.getGender(),
                 user.getEmail(),
                 user.getProfilePictureUrl(),
                 sheikh.getSheikhStatus(),

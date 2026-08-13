@@ -6,6 +6,7 @@ import com.almahir.iti.exception.ResourceNotFoundException;
 import com.almahir.iti.mapper.SheikhMapper;
 import com.almahir.iti.model.Sheikh;
 import com.almahir.iti.model.User;
+import com.almahir.iti.model.enums.Gender;
 import com.almahir.iti.model.enums.SheikhStatus;
 import com.almahir.iti.repository.SheikhRepository;
 import com.almahir.iti.repository.UserRepository;
@@ -62,6 +63,7 @@ class SheikhServiceImplTest {
                 .username("sheikh_ahmed")
                 .firstName("Ahmed")
                 .lastName("Mahmoud")
+                .gender(Gender.MALE)
                 .email("ahmed@example.com")
                 .phoneNumber("01012345678")
                 .password("encoded_old_password")
@@ -80,6 +82,7 @@ class SheikhServiceImplTest {
                 "sheikh_ahmed",
                 "Ahmed",
                 "Mahmoud",
+                Gender.MALE,
                 "ahmed@example.com",
                 "01012345678",
                 "http://example.com/pic.jpg",
@@ -162,6 +165,7 @@ class SheikhServiceImplTest {
                 "Mohamed Ali",
                 null,
                 null,
+                Gender.MALE,
                 "01112345678",
                 null,
                 SheikhStatus.BUSY
@@ -177,6 +181,7 @@ class SheikhServiceImplTest {
                 "sheikh_ahmed",
                 "Mohamed",
                 "Ali",
+                Gender.MALE,
                 "ahmed@example.com",
                 "01112345678",
                 "http://example.com/pic.jpg",
@@ -210,6 +215,7 @@ class SheikhServiceImplTest {
                 "sheikh_ahmed",
                 "Ahmed",
                 "Mahmoud",
+                Gender.MALE,
                 "ahmed@example.com",
                 "01012345678",
                 "http://cloudinary.com/new_pic.jpg",

@@ -20,8 +20,10 @@ public class ForgotPassword {
     @Indexed
     private Integer otp;
 
+    @Builder.Default
     private boolean isVerified = false;
 
     @TimeToLive
+    @Builder.Default
     private long timeToLive = 300;
 }

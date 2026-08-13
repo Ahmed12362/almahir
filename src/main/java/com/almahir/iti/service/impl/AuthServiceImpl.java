@@ -17,6 +17,7 @@ import com.almahir.iti.model.AuthUser;
 import com.almahir.iti.model.RefreshToken;
 import com.almahir.iti.model.Role;
 import com.almahir.iti.model.enums.RoleName;
+import com.almahir.iti.model.enums.Gender;
 import com.almahir.iti.model.Sheikh;
 import com.almahir.iti.model.enums.SheikhStatus;
 import com.almahir.iti.model.Student;
@@ -108,6 +109,7 @@ public class AuthServiceImpl implements AuthService {
         String fullName = (String) payload.get("name");
         String firstName = (String) payload.get("given_name");
         String lastName = (String) payload.get("family_name");
+        Gender gender = request.gender();
 
         AtomicBoolean isNewUser = new AtomicBoolean(true);
 
@@ -120,10 +122,13 @@ public class AuthServiceImpl implements AuthService {
                     if (existingUser.getProvider() == null || existingUser.getProvider().isBlank()) {
                         existingUser.setProvider("GOOGLE");
                     }
+                    if (existingUser.getGender() == null && gender != null) {
+                        existingUser.setGender(gender);
+                    }
                     isNewUser.set(false);
                     return userRepository.save(existingUser);
                 })
-                .orElseGet(() -> createGoogleUser(email, googleId, fullName, firstName, lastName, requiredRole));
+                .orElseGet(() -> createGoogleUser(email, googleId, fullName, firstName, lastName, gender, requiredRole));
 
         if(user.getRoles()
                 .stream()
@@ -183,6 +188,7 @@ public class AuthServiceImpl implements AuthService {
             User user = User.builder()
                     .firstName(request.firstName())
                     .lastName(request.lastName())
+                    .gender(request.gender())
                     .username(request.username())
                     .email(request.email())
                     .phoneNumber(request.phoneNumber())
@@ -255,6 +261,7 @@ public class AuthServiceImpl implements AuthService {
             String fullName,
             String firstName,
             String lastName,
+            Gender gender,
             RoleName requiredRole
     ) {
         Role userRole = roleRepository.findByName(requiredRole)
@@ -268,6 +275,7 @@ public class AuthServiceImpl implements AuthService {
                 .username(email)
                 .firstName(resolvedFirstName)
                 .lastName(resolvedLastName)
+                .gender(gender)
                 .email(email)
                 .googleId(googleId)
                 .provider("GOOGLE")
