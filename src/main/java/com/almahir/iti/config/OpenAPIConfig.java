@@ -36,7 +36,7 @@ public class OpenAPIConfig {
                         .title("Al-Mahir ITI API")
                         .version("1.0.0")
                         .description("Backend API documentation for Al-Mahir App"))
-                .servers(List.of(prodServer, localServer))
+                .servers(List.of(prodServer, localServer , newServer))
                 .addSecurityItem(new SecurityRequirement().addList("BearerAuthentication"))
                 .components(new Components()
                         .addSecuritySchemes("BearerAuthentication", new SecurityScheme()
