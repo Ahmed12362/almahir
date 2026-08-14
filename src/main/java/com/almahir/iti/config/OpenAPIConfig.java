@@ -24,7 +24,9 @@ public class OpenAPIConfig {
         Server prodServer = new Server()
                 .url("https://almahir-production.up.railway.app")
                 .description("Production Server (HTTPS)");
-
+        Server newServer = new Server()
+                .url("https://almahir-production-6f98.up.railway.app")
+                .description("Production Server (HTTPS) (NEW)");
         Server localServer = new Server()
                 .url("http://localhost:8080")
                 .description("Local Server (HTTP)");
