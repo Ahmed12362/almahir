@@ -1,6 +1,7 @@
 // controller/PaymentWebhookDebugController.java
 package com.almahir.iti.controller;
 
+import io.swagger.v3.oas.annotations.Hidden;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -12,6 +13,7 @@ import java.util.Map;
 
 @RestController
 @Slf4j
+@Hidden
 public class PaymentWebhookDebugController {
 
     @PostMapping("/api/payment/webhooks/paymob-debug")
