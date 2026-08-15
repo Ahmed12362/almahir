@@ -132,6 +132,46 @@ public class CircleServiceImpl implements CircleService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Page<CircleResponse> getAllCircles(Pageable pageable) {
+        return circleRepository.findAll(pageable)
+                .map(circle -> circleMapper.toResponse(circle,
+                        circleMembershipRepository.countByCircleAndStatus(circle, MembershipStatus.ACTIVE)));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<CircleResponse> getPublicCircles(Pageable pageable) {
+        return circleRepository.findAllPublic(pageable)
+                .map(circle -> circleMapper.toResponse(circle,
+                        circleMembershipRepository.countByCircleAndStatus(circle, MembershipStatus.ACTIVE)));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<CircleResponse> getPrivateCircles(Pageable pageable) {
+        return circleRepository.findAllPrivate(pageable)
+                .map(circle -> circleMapper.toResponse(circle,
+                        circleMembershipRepository.countByCircleAndStatus(circle, MembershipStatus.ACTIVE)));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<CircleResponse> getCirclesBySheikhId(UUID sheikhId, Pageable pageable) {
+        return circleRepository.findBySheikhId(sheikhId, pageable)
+                .map(circle -> circleMapper.toResponse(circle,
+                        circleMembershipRepository.countByCircleAndStatus(circle, MembershipStatus.ACTIVE)));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<CircleResponse> getCirclesByStudentId(UUID studentId, Pageable pageable) {
+        return circleRepository.findCirclesByStudentId(studentId, pageable)
+                .map(circle -> circleMapper.toResponse(circle,
+                        circleMembershipRepository.countByCircleAndStatus(circle, MembershipStatus.ACTIVE)));
+    }
+
+    @Override
     @Transactional
     public CircleResponse updateCircle(User currentUser, UUID circleId, CircleUpdateRequest request) {
         Circle circle = circleRepository.findById(circleId)

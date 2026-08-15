@@ -71,6 +71,7 @@ public class JwtServiceImpl implements JwtService {
             return false;
         if (!"access".equals(getTokenType(token)))
             return false;
+        if (!userDetails.isEnabled()) return false;
         return getEmailFromToken(token)
                 .equals(userDetails.getUsername());
     }

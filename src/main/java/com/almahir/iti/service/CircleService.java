@@ -14,13 +14,23 @@ import java.util.List;
 import java.util.UUID;
 
 public interface CircleService {
-    CircleHostResponse createCircle(User currentUser, CircleCreateRequest request);
+    CircleResponse createCircle(User currentUser, CircleCreateRequest request);
 
     Page<CircleResponse> listCircles(CircleStatus status, Pageable pageable);
 
     Page<CircleResponse> getMyCircles(User currentUser, Pageable pageable);
 
     CircleResponse getCircleById(UUID circleId);
+
+    Page<CircleResponse> getAllCircles(Pageable pageable);
+
+    Page<CircleResponse> getPublicCircles(Pageable pageable);
+
+    Page<CircleResponse> getPrivateCircles(Pageable pageable);
+
+    Page<CircleResponse> getCirclesBySheikhId(UUID sheikhId, Pageable pageable);
+
+    Page<CircleResponse> getCirclesByStudentId(UUID studentId, Pageable pageable);
 
     CircleResponse updateCircle(User currentUser, UUID circleId, CircleUpdateRequest request);
 

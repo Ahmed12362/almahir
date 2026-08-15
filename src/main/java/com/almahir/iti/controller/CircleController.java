@@ -76,11 +76,11 @@ public class CircleController {
     @Operation(summary = "Create a new Circle", description = "PUBLIC circles: Sheikh only. PRIVATE circles: any authenticated user.")
     @PreAuthorize("isAuthenticated()")
     @PostMapping()
-    public ResponseEntity<ApiResponse<CircleHostResponse>> createCircle(
+    public ResponseEntity<ApiResponse<CircleResponse>> createCircle(
             @Valid @RequestBody CircleCreateRequest request,
             @AuthenticationPrincipal AuthUser authUser
     ) {
-        CircleHostResponse circle = circleService.createCircle(authUser.getUser(), request);
+        CircleResponse circle = circleService.createCircle(authUser.getUser(), request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Circle created successfully", circle));
     }
@@ -95,6 +95,53 @@ public class CircleController {
     ) {
         Page<CircleResponse> page = circleService.listCircles(status, pageable);
         return ResponseEntity.ok(ApiResponse.success("Circles retrieved successfully", page));
+    }
+
+    @Operation(summary = "Get all circles", description = "Retrieves all circles regardless of public/private status.")
+    @GetMapping("/all")
+    public ResponseEntity<ApiResponse<Page<CircleResponse>>> getAllCircles(
+            @ParameterObject @PageableDefault(size = 20, sort = "startDate") Pageable pageable
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("Circles retrieved successfully",
+                circleService.getAllCircles(pageable)));
+    }
+
+    @Operation(summary = "Get public circles", description = "Retrieves all public circles.")
+    @GetMapping("/public")
+    public ResponseEntity<ApiResponse<Page<CircleResponse>>> getPublicCircles(
+            @ParameterObject @PageableDefault(size = 20, sort = "startDate") Pageable pageable
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("Public circles retrieved successfully",
+                circleService.getPublicCircles(pageable)));
+    }
+
+    @Operation(summary = "Get private circles", description = "Retrieves all private circles.")
+    @GetMapping("/private")
+    public ResponseEntity<ApiResponse<Page<CircleResponse>>> getPrivateCircles(
+            @ParameterObject @PageableDefault(size = 20, sort = "startDate") Pageable pageable
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("Private circles retrieved successfully",
+                circleService.getPrivateCircles(pageable)));
+    }
+
+    @Operation(summary = "Get circles by Sheikh ID", description = "Retrieves circles owned by a specific Sheikh.")
+    @GetMapping("/sheikh/{sheikhId}")
+    public ResponseEntity<ApiResponse<Page<CircleResponse>>> getCirclesBySheikhId(
+            @PathVariable UUID sheikhId,
+            @ParameterObject @PageableDefault(size = 20, sort = "startDate") Pageable pageable
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("Circles retrieved successfully",
+                circleService.getCirclesBySheikhId(sheikhId, pageable)));
+    }
+
+    @Operation(summary = "Get circles by Student ID", description = "Retrieves circles joined by a specific student.")
+    @GetMapping("/student/{studentId}")
+    public ResponseEntity<ApiResponse<Page<CircleResponse>>> getCirclesByStudentId(
+            @PathVariable UUID studentId,
+            @ParameterObject @PageableDefault(size = 20, sort = "startDate") Pageable pageable
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("Circles retrieved successfully",
+                circleService.getCirclesByStudentId(studentId, pageable)));
     }
 
     @Operation(summary = "Get Circle details by ID", description = "Retrieve detailed information for a specific circle (public or private, if you have the ID).")
@@ -150,20 +197,6 @@ public class CircleController {
             @RequestBody(required = false) CircleJoinRequest request
     ) {
         CircleJoinResponse joinResponse = circleService.joinCircle(circleId, authUser.getUser(), request);
-        return ResponseEntity.ok(ApiResponse.success("Join request submitted successfully.", joinResponse));
-    }
-
-    @Operation(
-            summary = "Join a Private Circle via Invite Link",
-            description = "Joins (or requests to join, if the circle requires approval) a PRIVATE circle using its invite token. No password needed — the token itself grants access."
-    )
-    @PreAuthorize("isAuthenticated()")
-    @PostMapping("/join/{token}")
-    public ResponseEntity<ApiResponse<CircleJoinResponse>> joinCircleByToken(
-            @Parameter(description = "Invite token for the private circle", required = true) @PathVariable String token,
-            @AuthenticationPrincipal AuthUser authUser
-    ) {
-        CircleJoinResponse joinResponse = circleService.joinCircleByToken(token, authUser.getUser());
         return ResponseEntity.ok(ApiResponse.success("Join request submitted successfully.", joinResponse));
     }
 
@@ -276,22 +309,6 @@ public class CircleController {
         return ResponseEntity.ok(ApiResponse.success("Members retrieved successfully", members));
     }
     @Operation(
-            summary = "Get My Private Circles (Host)",
-            description = "Retrieve a paginated list of PRIVATE circles owned by the logged-in user, including their invite tokens. Optionally filtered by status; defaults to all statuses."
-    )
-    @PreAuthorize("isAuthenticated()")
-    @GetMapping("/mine/private")
-    public ResponseEntity<ApiResponse<Page<CircleHostResponse>>> getMyPrivateCircles(
-            @Parameter(description = "Filter circles by status (e.g., SCHEDULED, ONGOING, COMPLETED, CANCELLED)")
-            @RequestParam(required = false) CircleStatus status,
-            @AuthenticationPrincipal AuthUser authUser,
-            @ParameterObject @PageableDefault(size = 20, sort = "startDate") Pageable pageable
-    ) {
-        Page<CircleHostResponse> page = circleService.getAllPrivateCircleForHost(authUser.getUser(), status, pageable);
-        return ResponseEntity.ok(ApiResponse.success("Private circles retrieved successfully", page));
-    }
-
-    @Operation(
             summary = "Get My Circle History",
             description = "Retrieve a paginated list of circles the logged-in user has been a member of, past or present. " +
                     "Optionally filter by membership status (e.g., ACTIVE, LEFT, REMOVED). Defaults to ACTIVE, LEFT, and REMOVED."
@@ -307,5 +324,4 @@ public class CircleController {
         Page<CircleResponse> page = circleService.getCircleHistory(authUser.getUser(), status, pageable);
         return ResponseEntity.ok(ApiResponse.success("Circle history retrieved successfully", PageResponse.from(page)));
     }
-
 }
