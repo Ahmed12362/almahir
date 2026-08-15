@@ -97,7 +97,6 @@ public class PaymentServiceImpl implements PaymentService {
                     buildBillingData(user)
             );
         } catch (IntentionAlreadyExistsException e) {
-            // حالة نادرة: Paymob بتقول موجودة بس مش لاقيينها عندنا (مثلاً كتابة سابقة فشلت تتسجل)
             return transactionRepository.findByPaymobIntentionId(specialReference)
                     .map(this::toResponse)
                     .orElseThrow(() -> new PaymobUnavailableException(
