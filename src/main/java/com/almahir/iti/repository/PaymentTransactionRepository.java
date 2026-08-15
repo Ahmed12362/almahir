@@ -15,4 +15,10 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
     boolean existsByUserAndSubscriptionPackageAndStatus(
             User user, SubscriptionPackage subscriptionPackage, PaymentStatus status
     );
+
+    boolean existsByPaymobTransactionId(String paymobTransactionId);
+
+    Optional<PaymentTransaction> findTopByUserIdAndIdempotencyKeyOrderByCreatedAtDesc(UUID userId, String idempotencyKey);
+
+    long countByUserIdAndIdempotencyKey(UUID userId, String idempotencyKey);
 }

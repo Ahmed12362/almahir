@@ -60,6 +60,8 @@ public class PaymentTransaction {
     private String paymobClientSecret;
 
     private Instant intentionExpiresAt;
+    @Column(nullable = false)
+    private String idempotencyKey;
 
     @Version
     private Long version;
