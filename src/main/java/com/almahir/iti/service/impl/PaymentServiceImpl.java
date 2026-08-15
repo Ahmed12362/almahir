@@ -1,6 +1,7 @@
 package com.almahir.iti.service.impl;
 
 import com.almahir.iti.client.PaymobClient;
+import com.almahir.iti.client.PaymobHmacVerifier;
 import com.almahir.iti.config.PaymobProperties;
 import com.almahir.iti.dto.request.CreateIntentionRequest;
 import com.almahir.iti.dto.response.CreateIntentionResponse;
@@ -34,6 +35,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final PaymobClient paymobClient;
     private final PaymobProperties paymobProperties;
+    private final PaymobHmacVerifier paymobHmacVerifier;
 
     private static final Duration INTENTION_TTL = Duration.ofMinutes(15);
 
@@ -55,13 +57,31 @@ public class PaymentServiceImpl implements PaymentService {
             throw new ConflictException("You already have this package active.");
         }
 
-        String specialReference = user.getId() + ":" + request.idempotencyKey();
+        String idempotencyKey = request.idempotencyKey();
 
-        Optional<PaymentTransaction> existing = transactionRepository.findByPaymobIntentionId(specialReference);
-        if (existing.isPresent()) {
-            log.info("Reusing existing intention for reference {}", specialReference);
-            return toResponse(existing.get());
+        Optional<PaymentTransaction> lastAttempt = transactionRepository
+                .findTopByUserIdAndIdempotencyKeyOrderByCreatedAtDesc(user.getId(), idempotencyKey);
+
+        if (lastAttempt.isPresent()) {
+            PaymentTransaction last = lastAttempt.get();
+
+            if (last.getStatus() == PaymentStatus.SUCCESS) {
+                throw new ConflictException("This payment was already completed.");
+            }
+
+            boolean stillValid = last.getStatus() == PaymentStatus.PENDING
+                    && last.getIntentionExpiresAt() != null
+                    && last.getIntentionExpiresAt().isAfter(Instant.now());
+
+            if (stillValid) {
+                log.info("Reusing valid pending intention for idempotencyKey {}", idempotencyKey);
+                return toResponse(last);
+            }
         }
+
+        long attemptNumber = transactionRepository.countByUserIdAndIdempotencyKey(user.getId(), idempotencyKey);
+        String specialReference = user.getId() + ":" + idempotencyKey
+                + (attemptNumber > 0 ? ":r" + attemptNumber : "");
 
         int integrationId = (method == PaymentMethod.CARD)
                 ? paymobProperties.getCardIntegrationId()
@@ -90,6 +110,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .user(user)
                 .subscriptionPackage(pkg)
                 .paymobIntentionId(specialReference)
+                .idempotencyKey(idempotencyKey)
                 .paymobClientSecret(paymobResponse.client_secret())
                 .method(method)
                 .status(PaymentStatus.PENDING)
@@ -122,8 +143,6 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public void handlePaymobWebhook(Map<String, Object> payload, String hmac) {
-        // TODO: التحقق من الـ HMAC هيتحط هنا (PaymobHmacVerifier) — هوريك في الرسالة الجاية
-
         @SuppressWarnings("unchecked")
         Map<String, Object> obj = (Map<String, Object>) payload.get("obj");
         if (obj == null) {
@@ -131,12 +150,17 @@ public class PaymentServiceImpl implements PaymentService {
             return;
         }
 
+        if (!paymobHmacVerifier.isValid(obj, hmac)) {
+            log.warn("Webhook rejected: invalid HMAC signature.");
+            throw new InvalidHmacException("Invalid webhook signature.");
+        }
+
         String paymobTransactionId = String.valueOf(obj.get("id"));
         boolean success = Boolean.TRUE.equals(obj.get("success"));
 
-        // ⚠️ محتاج تتأكد من اسم الحقل ده على حسب رد فعلي من الـ webhook الحقيقي عندك،
-        // ممكن يكون obj.get("order") -> "merchant_order_id" بدل special_reference مباشرة.
-        String specialReference = String.valueOf(obj.get("special_reference"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> order = (Map<String, Object>) obj.get("order");
+        String specialReference = order != null ? String.valueOf(order.get("merchant_order_id")) : null;
 
         PaymentTransaction tx = transactionRepository.findByPaymobIntentionId(specialReference)
                 .orElse(null);
@@ -150,8 +174,7 @@ public class PaymentServiceImpl implements PaymentService {
             return;
         }
 
-        if (transactionRepository.findAll().stream()
-                .anyMatch(t -> paymobTransactionId.equals(t.getPaymobTransactionId()))) {
+        if (transactionRepository.existsByPaymobTransactionId(paymobTransactionId)) {
             log.info("Duplicate webhook delivery for transaction {}, ignoring.", paymobTransactionId);
             return;
         }

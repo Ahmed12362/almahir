@@ -229,6 +229,14 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(InvalidHmacException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidHmac(InvalidHmacException ex) {
+        log.warn("Rejected webhook due to invalid HMAC: {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(new ErrorResponse(false, ex.getMessage(), null, Instant.now()));
+    }
+
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<ErrorResponse> handleConflictException(ConflictException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
