@@ -156,6 +156,28 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(InvalidPackageException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidPackage(InvalidPackageException ex) {
+        return ResponseEntity.badRequest()
+                .body(new ErrorResponse(
+                        false,
+                        ex.getMessage(),
+                        Map.of("code", ex.getCode()),
+                        Instant.now()
+                ));
+    }
+
+    @ExceptionHandler(PaymobUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handlePaymobUnavailable(PaymobUnavailableException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(new ErrorResponse(
+                        false,
+                        ex.getMessage(),
+                        Map.of("code", ex.getCode()),
+                        Instant.now()
+                ));
+    }
+
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ErrorResponse> handleMaxSizeException(MaxUploadSizeExceededException exc) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -217,6 +239,7 @@ public class GlobalExceptionHandler {
                         Instant.now()
                 ));
     }
+
     @ExceptionHandler(AuthorizationDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAuthorizationDenied(
             AuthorizationDeniedException ex) {
