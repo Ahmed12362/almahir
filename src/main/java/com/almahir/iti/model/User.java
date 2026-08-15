@@ -35,6 +35,10 @@ public class User {
     private String googleId;
     private String provider;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean blocked = false;
+
     @Column(nullable = true)
     private String profilePictureUrl;
 

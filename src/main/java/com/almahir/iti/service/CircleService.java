@@ -22,6 +22,16 @@ public interface CircleService {
 
     CircleResponse getCircleById(UUID circleId);
 
+    Page<CircleResponse> getAllCircles(Pageable pageable);
+
+    Page<CircleResponse> getPublicCircles(Pageable pageable);
+
+    Page<CircleResponse> getPrivateCircles(Pageable pageable);
+
+    Page<CircleResponse> getCirclesBySheikhId(UUID sheikhId, Pageable pageable);
+
+    Page<CircleResponse> getCirclesByStudentId(UUID studentId, Pageable pageable);
+
     CircleResponse updateCircle(User currentUser, UUID circleId, CircleUpdateRequest request);
 
     void cancelCircle(User currentUser, UUID circleId);

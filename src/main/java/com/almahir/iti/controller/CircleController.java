@@ -97,6 +97,53 @@ public class CircleController {
         return ResponseEntity.ok(ApiResponse.success("Circles retrieved successfully", page));
     }
 
+    @Operation(summary = "Get all circles", description = "Retrieves all circles regardless of public/private status.")
+    @GetMapping("/all")
+    public ResponseEntity<ApiResponse<Page<CircleResponse>>> getAllCircles(
+            @ParameterObject @PageableDefault(size = 20, sort = "startDate") Pageable pageable
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("Circles retrieved successfully",
+                circleService.getAllCircles(pageable)));
+    }
+
+    @Operation(summary = "Get public circles", description = "Retrieves all public circles.")
+    @GetMapping("/public")
+    public ResponseEntity<ApiResponse<Page<CircleResponse>>> getPublicCircles(
+            @ParameterObject @PageableDefault(size = 20, sort = "startDate") Pageable pageable
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("Public circles retrieved successfully",
+                circleService.getPublicCircles(pageable)));
+    }
+
+    @Operation(summary = "Get private circles", description = "Retrieves all private circles.")
+    @GetMapping("/private")
+    public ResponseEntity<ApiResponse<Page<CircleResponse>>> getPrivateCircles(
+            @ParameterObject @PageableDefault(size = 20, sort = "startDate") Pageable pageable
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("Private circles retrieved successfully",
+                circleService.getPrivateCircles(pageable)));
+    }
+
+    @Operation(summary = "Get circles by Sheikh ID", description = "Retrieves circles owned by a specific Sheikh.")
+    @GetMapping("/sheikh/{sheikhId}")
+    public ResponseEntity<ApiResponse<Page<CircleResponse>>> getCirclesBySheikhId(
+            @PathVariable UUID sheikhId,
+            @ParameterObject @PageableDefault(size = 20, sort = "startDate") Pageable pageable
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("Circles retrieved successfully",
+                circleService.getCirclesBySheikhId(sheikhId, pageable)));
+    }
+
+    @Operation(summary = "Get circles by Student ID", description = "Retrieves circles joined by a specific student.")
+    @GetMapping("/student/{studentId}")
+    public ResponseEntity<ApiResponse<Page<CircleResponse>>> getCirclesByStudentId(
+            @PathVariable UUID studentId,
+            @ParameterObject @PageableDefault(size = 20, sort = "startDate") Pageable pageable
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("Circles retrieved successfully",
+                circleService.getCirclesByStudentId(studentId, pageable)));
+    }
+
     @Operation(summary = "Get Circle details by ID", description = "Retrieve detailed information for a specific circle (public or private, if you have the ID).")
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/{circleId}")
