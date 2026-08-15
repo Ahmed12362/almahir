@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.UUID;
 
 public interface CircleService {
-    CircleResponse createCircle(User currentUser, CircleCreateRequest request);
+    CircleHostResponse createCircle(User currentUser, CircleCreateRequest request);
 
     Page<CircleResponse> listCircles(CircleStatus status, Pageable pageable);
 

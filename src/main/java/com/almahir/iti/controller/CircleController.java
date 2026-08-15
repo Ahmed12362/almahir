@@ -76,11 +76,11 @@ public class CircleController {
     @Operation(summary = "Create a new Circle", description = "PUBLIC circles: Sheikh only. PRIVATE circles: any authenticated user.")
     @PreAuthorize("isAuthenticated()")
     @PostMapping()
-    public ResponseEntity<ApiResponse<CircleResponse>> createCircle(
+    public ResponseEntity<ApiResponse<CircleHostResponse>> createCircle(
             @Valid @RequestBody CircleCreateRequest request,
             @AuthenticationPrincipal AuthUser authUser
     ) {
-        CircleResponse circle = circleService.createCircle(authUser.getUser(), request);
+        CircleHostResponse circle = circleService.createCircle(authUser.getUser(), request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Circle created successfully", circle));
     }
