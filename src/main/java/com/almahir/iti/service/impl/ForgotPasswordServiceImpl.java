@@ -2,6 +2,8 @@ package com.almahir.iti.service.impl;
 
 import com.almahir.iti.dto.request.ChangePasswordRequest;
 import com.almahir.iti.dto.request.MailBody;
+import com.almahir.iti.exception.ResourceNotFoundException;
+import com.almahir.iti.exception.ValueMismatchException;
 import com.almahir.iti.model.ForgotPassword;
 import com.almahir.iti.model.User;
 import com.almahir.iti.repository.ForgotPasswordRepository;
@@ -51,10 +53,10 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
     @Override
     public void verifyOtp(Integer otp, String email) {
         ForgotPassword forgotPassword = forgotPasswordRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired OTP for email: " + email));
+                .orElseThrow(() -> new ResourceNotFoundException("Invalid or expired OTP for email: " + email));
 
         if (!forgotPassword.getOtp().equals(otp)) {
-            throw new IllegalArgumentException("Invalid or expired OTP for email: " + email);
+            throw new ValueMismatchException("Invalid or expired OTP for email: " + email);
         }
 
         forgotPassword.setVerified(true);
@@ -65,14 +67,14 @@ public class ForgotPasswordServiceImpl implements ForgotPasswordService {
     @Transactional
     public void changePassword(User user, ChangePasswordRequest changePasswordRequest) {
         if (!changePasswordRequest.password().equals(changePasswordRequest.confirmPassword())) {
-            throw new IllegalArgumentException("Passwords do not match");
+            throw new ValueMismatchException("Passwords do not match");
         }
 
         ForgotPassword forgotPassword = forgotPasswordRepository.findByEmail(user.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("No forgot password request found or session expired for email: " + user.getEmail()));
+                .orElseThrow(() -> new ResourceNotFoundException("No forgot password request found or session expired for email: " + user.getEmail()));
 
         if (!forgotPassword.isVerified()) {
-            throw new IllegalArgumentException("OTP not verified. Please verify the OTP first.");
+            throw new ValueMismatchException("OTP not verified. Please verify the OTP first.");
         }
 
         user.setPassword(passwordEncoder.encode(changePasswordRequest.password()));

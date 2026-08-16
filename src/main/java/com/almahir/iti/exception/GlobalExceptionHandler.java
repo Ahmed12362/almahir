@@ -295,6 +295,17 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(ValueMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleValueMismatch(ValueMismatchException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(
+                        false,
+                        e.getMessage(),
+                        null,
+                        Instant.now()
+                ));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception e) {
         log.error("Unhandled exception occurred: ", e);
