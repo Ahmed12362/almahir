@@ -70,7 +70,7 @@ public class AuthController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Login successful"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Invalid credentials")
     })
-    @PostMapping({"/user/login", "/sheikh/login"})
+    @PostMapping({"/user/login", "/sheikh/login", "/admin/login"})
     public ResponseEntity<ApiResponse<AuthResponse>> login(
             @Valid @RequestBody LoginRequest request) {
 
@@ -80,7 +80,7 @@ public class AuthController {
                 ApiResponse.success(
                         "Login successful",
                         authService.login(request,
-                                uri.contains("user") ? RoleName.STUDENT : RoleName.SHEIKH)
+                                roleForAuthRequest(uri))
                 )
         );
     }
@@ -112,7 +112,7 @@ public class AuthController {
     }
 
     @Operation(summary = "Refresh JWT Token", description = "Exchanges a valid refresh token for a new access token.")
-    @PostMapping({"user/refresh", "sheikh/refresh"})
+    @PostMapping({"user/refresh", "sheikh/refresh", "admin/refresh"})
     public ResponseEntity<ApiResponse<AuthResponse>> refresh(
 
             @Valid
@@ -124,7 +124,7 @@ public class AuthController {
 
         AuthResponse response =
                 authService.refresh(request,
-                        uri.contains("user") ? RoleName.STUDENT : RoleName.SHEIKH);
+                        roleForAuthRequest(uri));
 
         return ResponseEntity.ok(
                 ApiResponse.success(
@@ -152,5 +152,12 @@ public class AuthController {
                 )
         );
 
+    }
+
+    private RoleName roleForAuthRequest(String uri) {
+        if (uri.contains("/admin/")) {
+            return RoleName.ADMIN;
+        }
+        return uri.contains("/user/") ? RoleName.STUDENT : RoleName.SHEIKH;
     }
 }

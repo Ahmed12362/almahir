@@ -6,6 +6,7 @@ import com.almahir.iti.exception.InvalidUserRoleException;
 import com.almahir.iti.exception.ImageUploadException;
 import com.almahir.iti.exception.RegistrationFailedException;
 import com.almahir.iti.exception.ResourceNotFoundException;
+import com.almahir.iti.exception.ForbiddenOperationException;
 import com.almahir.iti.mapper.UserMapper;
 import com.almahir.iti.service.*;
 import com.almahir.iti.dto.request.LoginRequest;
@@ -84,6 +85,12 @@ public class AuthServiceImpl implements AuthService {
             throw new BadCredentialsException("Authentication failed.");
         }
 
+        if (authUser.getUser().isBlocked()) {
+            throw new BadCredentialsException("Authentication failed.");
+        }
+
+        enforceApprovedSheikhIfNeeded(authUser.getUser(), requiredRole);
+
         String accessToken =
                 jwtService.generateAccessToken(authUser);
 
@@ -141,6 +148,12 @@ public class AuthServiceImpl implements AuthService {
         ) {
             throw new InvalidUserRoleException("You are " + user.getRoles().stream().findFirst().get().getName().toString() + ", and that app is for " + requiredRole.toString() + " Only");
         }
+
+        if (user.isBlocked()) {
+            throw new BadCredentialsException("Authentication failed.");
+        }
+
+        enforceApprovedSheikhIfNeeded(user, requiredRole);
 
 
         AuthUser authUser = new AuthUser(user);
@@ -291,7 +304,7 @@ public class AuthServiceImpl implements AuthService {
         if (roleName == RoleName.SHEIKH) {
             sheikhRepository.save(Sheikh.builder()
                     .user(user)
-                    .sheikhStatus(SheikhStatus.AVAILABLE)
+                    .sheikhStatus(SheikhStatus.PENDING_APPROVAL)
                     .rate(0.0)
                     .build());
         }
@@ -300,6 +313,16 @@ public class AuthServiceImpl implements AuthService {
             studentRepository.save(Student.builder()
                     .user(user)
                     .build());
+        }
+    }
+
+    private void enforceApprovedSheikhIfNeeded(User user, RoleName requiredRole) {
+        if (requiredRole == RoleName.SHEIKH) {
+            Sheikh sheikh = sheikhRepository.findByIdFetchUser(user.getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Sheikh not found with id: " + user.getId()));
+            if (sheikh.getSheikhStatus() == SheikhStatus.PENDING_APPROVAL) {
+                throw new ForbiddenOperationException("Your Sheikh account is pending admin approval.");
+            }
         }
     }
 

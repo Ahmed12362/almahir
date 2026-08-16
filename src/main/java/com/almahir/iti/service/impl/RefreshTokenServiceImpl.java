@@ -46,6 +46,9 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         if (refreshToken.getExpiresAt().isBefore(Instant.now())) {
             throw new InvalidRefreshTokenException("Refresh token expired");
         }
+        if (refreshToken.getUser().isBlocked()) {
+            throw new InvalidRefreshTokenException("User is blocked");
+        }
         return refreshToken;
     }
     @Transactional

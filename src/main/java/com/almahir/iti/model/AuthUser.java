@@ -41,7 +41,7 @@ public class AuthUser implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return true;
+        return !user.isBlocked();
     }
 
     @Override
@@ -51,6 +51,6 @@ public class AuthUser implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return !user.isBlocked();
     }
 }

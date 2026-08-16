@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Configuration;
 public class DataInitializer {
 
     private final RoleRepository roleRepository;
+    private final AdminUserSeeder adminUserSeeder;
 
     @Bean
     CommandLineRunner initRoles() {
@@ -29,4 +30,8 @@ public class DataInitializer {
         };
     }
 
+    @Bean
+    CommandLineRunner initAdmin() {
+        return args -> adminUserSeeder.seed();
+    }
 }
