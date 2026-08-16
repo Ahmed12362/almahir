@@ -1,7 +1,7 @@
 package com.almahir.iti.model.enums;
 
 public enum SheikhStatus {
-    Declined,
+    DECLINED,
     PENDING_APPROVAL,
     AVAILABLE,
     BUSY,

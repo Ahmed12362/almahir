@@ -8,4 +8,5 @@ import java.util.UUID;
 
 public interface SubscriptionPackageRepository extends JpaRepository<SubscriptionPackage, UUID> {
     Optional<SubscriptionPackage> findByCodeAndActiveTrue(String code);
+    boolean existsByCode(String code);
 }
