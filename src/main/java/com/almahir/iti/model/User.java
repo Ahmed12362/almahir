@@ -38,8 +38,13 @@ public class User {
     @Column(nullable = true)
     private String profilePictureUrl;
 
-    @ManyToMany(cascade = {CascadeType.MERGE, CascadeType.PERSIST, CascadeType.DETACH, CascadeType.REFRESH}
-            , fetch = FetchType.EAGER)
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean blocked = false;
+
+//    @ManyToMany(cascade = {CascadeType.MERGE, CascadeType.PERSIST, CascadeType.DETACH, CascadeType.REFRESH}
+//            , fetch = FetchType.EAGER)
+    @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "user_role",
             joinColumns = @JoinColumn(name = "user_id"),
