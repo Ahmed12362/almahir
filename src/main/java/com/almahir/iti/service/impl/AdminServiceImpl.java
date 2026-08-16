@@ -1,7 +1,10 @@
 package com.almahir.iti.service.impl;
 
+import com.almahir.iti.dto.request.CreateSubscriptionPackageRequest;
 import com.almahir.iti.dto.response.SheikhResponse;
+import com.almahir.iti.dto.response.SubscriptionPackageResponse;
 import com.almahir.iti.dto.response.UserResponse;
+import com.almahir.iti.exception.AlreadyExists;
 import com.almahir.iti.exception.ForbiddenOperationException;
 import com.almahir.iti.exception.ResourceNotFoundException;
 import com.almahir.iti.mapper.SheikhMapper;
@@ -18,6 +21,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -30,6 +36,7 @@ public class AdminServiceImpl implements AdminService {
     private final SheikhRepository sheikhRepository;
     private final SheikhMapper sheikhMapper;
     private final CircleRepository circleRepository;
+    private final SubscriptionPackageRepository subscriptionPackageRepository;
 
     @Override
     @Transactional
@@ -46,7 +53,7 @@ public class AdminServiceImpl implements AdminService {
     public SheikhResponse declineSheikh(UUID sheikhId) {
         Sheikh sheikh = sheikhRepository.findByIdFetchUser(sheikhId)
                 .orElseThrow(() -> new ResourceNotFoundException("Sheikh not found with id: " + sheikhId));
-        sheikh.setSheikhStatus(SheikhStatus.Declined);
+        sheikh.setSheikhStatus(SheikhStatus.DECLINED);
         sheikh.getUser().setBlocked(true);
         sheikhRepository.save(sheikh);
         return sheikhMapper.toSheikhResponse(sheikh);
@@ -71,5 +78,44 @@ public class AdminServiceImpl implements AdminService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
         user.setBlocked(false);
         return userMapper.toUserResponse(userRepository.save(user));
+    }
+
+    @Override
+    @Transactional
+    public SubscriptionPackageResponse createSubscriptionPackage(CreateSubscriptionPackageRequest request) {
+        String code = request.code().trim();
+        if (subscriptionPackageRepository.existsByCode(code)) {
+            throw new AlreadyExists("Subscription package code '" + code + "'");
+        }
+
+        SubscriptionPackage subscriptionPackage = SubscriptionPackage.builder()
+                .code(code)
+                .name(request.name().trim())
+                .description(request.description())
+                .priceMinorUnits(request.priceMinorUnits())
+                .currencyCode(request.currencyCode().trim().toUpperCase(Locale.ROOT))
+                .meetingMinutesAllowed(request.meetingMinutesAllowed())
+                .durationDays(request.durationDays())
+                .features(request.features() == null ? new HashSet<>() : new HashSet<>(request.features()))
+                .active(request.active() == null || request.active())
+                .build();
+
+        SubscriptionPackage savedPackage = subscriptionPackageRepository.save(subscriptionPackage);
+        return toSubscriptionPackageResponse(savedPackage);
+    }
+
+    private SubscriptionPackageResponse toSubscriptionPackageResponse(SubscriptionPackage subscriptionPackage) {
+        return new SubscriptionPackageResponse(
+                subscriptionPackage.getId(),
+                subscriptionPackage.getCode(),
+                subscriptionPackage.getName(),
+                subscriptionPackage.getDescription(),
+                subscriptionPackage.getPriceMinorUnits(),
+                subscriptionPackage.getCurrencyCode(),
+                subscriptionPackage.getMeetingMinutesAllowed(),
+                subscriptionPackage.getDurationDays(),
+                Set.copyOf(subscriptionPackage.getFeatures()),
+                subscriptionPackage.isActive()
+        );
     }
 }
