@@ -4,17 +4,16 @@ import com.almahir.iti.dto.request.SheikhAvailabilityRequest;
 import com.almahir.iti.dto.response.*;
 import com.almahir.iti.exception.ConflictException;
 import com.almahir.iti.exception.ForbiddenOperationException;
+import com.almahir.iti.exception.InsufficientMinutesException;
 import com.almahir.iti.exception.ResourceNotFoundException;
 import com.almahir.iti.mapper.MeetingRequestMapper;
-import com.almahir.iti.model.MeetingRequest;
-import com.almahir.iti.model.Sheikh;
-import com.almahir.iti.model.Student;
-import com.almahir.iti.model.User;
+import com.almahir.iti.model.*;
 import com.almahir.iti.model.enums.MeetingRequestStatus;
 import com.almahir.iti.model.enums.SheikhStatus;
 import com.almahir.iti.repository.MeetingRequestRepository;
 import com.almahir.iti.repository.SheikhRepository;
 import com.almahir.iti.repository.StudentRepository;
+import com.almahir.iti.repository.UserSubscriptionRepository;
 import com.almahir.iti.service.AgoraService;
 import com.almahir.iti.service.InstantMeetingService;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +23,8 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -37,6 +38,7 @@ public class InstantMeetingServiceImpl implements InstantMeetingService {
     private final MeetingRequestRepository meetingRequestRepository;
     private final AgoraService agoraService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final UserSubscriptionRepository userSubscriptionRepository;
     private final MeetingRequestMapper meetingRequestMapper;
 
     @Override
@@ -66,6 +68,17 @@ public class InstantMeetingServiceImpl implements InstantMeetingService {
         Student student = studentRepository.findById(currentUser.getId())
                 .orElseThrow(() -> new ForbiddenOperationException("Only registered students can request instant meetings."));
 
+        UserSubscription subscription = userSubscriptionRepository.findByUserId(currentUser.getId())
+                .orElseThrow(() -> new InsufficientMinutesException(
+                        "You don't have an active subscription. Please subscribe to a package first."));
+
+        if (subscription.getExpiresAt() == null || subscription.getExpiresAt().isBefore(Instant.now())) {
+            throw new InsufficientMinutesException("Your subscription has expired. Please renew your package.");
+        }
+
+        if (subscription.getMinutesRemaining() == null || subscription.getMinutesRemaining() <= 0) {
+            throw new InsufficientMinutesException("You don't have enough meeting minutes remaining.");
+        }
         Sheikh sheikh = sheikhRepository.findById(sheikhId)
                 .orElseThrow(() -> new ResourceNotFoundException("Sheikh not found with ID: " + sheikhId));
 
@@ -339,6 +352,8 @@ public class InstantMeetingServiceImpl implements InstantMeetingService {
         meetingRequest.setStatus(MeetingRequestStatus.ENDED);
         meetingRequestRepository.save(meetingRequest);
 
+        deductMeetingMinutes(meetingRequest);
+
         Sheikh sheikh = meetingRequest.getSheikh();
         sheikh.setSheikhStatus(SheikhStatus.AVAILABLE);
         sheikhRepository.save(sheikh);
@@ -382,5 +397,23 @@ public class InstantMeetingServiceImpl implements InstantMeetingService {
                 .findBySheikhAndStatusIn(sheikh, effectiveStatuses, pageable);
 
         return PageResponse.from(history.map(meetingRequestMapper::toSheikhHistoryResponse));
+    }
+
+    private void deductMeetingMinutes(MeetingRequest meetingRequest) {
+        if (meetingRequest.getAcceptedAt() == null || meetingRequest.getEndedAt() == null) {
+            return;
+        }
+        long seconds = Duration.between(meetingRequest.getAcceptedAt(), meetingRequest.getEndedAt()).getSeconds();
+        int consumedMinutes = (int) Math.ceil(seconds / 60.0);
+        if (consumedMinutes <= 0) {
+            return;
+        }
+
+        userSubscriptionRepository.findByUserId(meetingRequest.getStudent().getId())
+                .ifPresent(sub -> {
+                    int remaining = sub.getMinutesRemaining() == null ? 0 : sub.getMinutesRemaining();
+                    sub.setMinutesRemaining(Math.max(0, remaining - consumedMinutes));
+                    userSubscriptionRepository.save(sub);
+                });
     }
 }

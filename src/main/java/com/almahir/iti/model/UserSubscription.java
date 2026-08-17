@@ -30,6 +30,8 @@ public class UserSubscription {
     private Instant startedAt;
 
     private Instant expiresAt;
+    @Column(name = "minutes_remaining")
+    private Integer minutesRemaining;
 
     @Version
     private Long version;
