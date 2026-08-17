@@ -53,4 +53,8 @@ public interface MeetingRequestRepository extends JpaRepository<MeetingRequest, 
     Page<MeetingRequest> findByStudentAndStatusIn(Student student, List<MeetingRequestStatus> statuses, Pageable pageable);
 
     Page<MeetingRequest> findBySheikhAndStatusIn(Sheikh sheikh, List<MeetingRequestStatus> statuses, Pageable pageable);
+
+    List<MeetingRequest> findByStatusAndAcceptedAtIsNotNull(
+            MeetingRequestStatus status
+    );
 }

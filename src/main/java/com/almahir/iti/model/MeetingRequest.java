@@ -55,6 +55,8 @@ public class MeetingRequest {
 
     @Column(name = "ended_at")
     private LocalDateTime endedAt;
+    @Column(name = "max_duration_minutes")
+    private Integer maxDurationMinutes;
     @Version
     private Long version;
 
