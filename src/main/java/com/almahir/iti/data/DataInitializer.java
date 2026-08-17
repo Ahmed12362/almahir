@@ -16,9 +16,8 @@ public class DataInitializer {
     private final AdminUserSeeder adminUserSeeder;
 
     @Bean
-    CommandLineRunner initRoles() {
+    CommandLineRunner initData() {
         return args -> {
-
             for (RoleName roleName : RoleName.values()) {
                 roleRepository.findByName(roleName)
                         .orElseGet(() -> {
@@ -27,11 +26,8 @@ public class DataInitializer {
                             return roleRepository.save(role);
                         });
             }
-        };
-    }
 
-    @Bean
-    CommandLineRunner initAdmin() {
-        return args -> adminUserSeeder.seed();
+            adminUserSeeder.seed();
+        };
     }
 }

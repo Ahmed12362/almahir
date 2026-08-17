@@ -1,25 +1,29 @@
 package com.almahir.iti.service.impl;
 
 import com.almahir.iti.dto.request.CreateSubscriptionPackageRequest;
-import com.almahir.iti.dto.response.SheikhResponse;
-import com.almahir.iti.dto.response.SubscriptionPackageResponse;
-import com.almahir.iti.dto.response.UserResponse;
+import com.almahir.iti.dto.response.*;
 import com.almahir.iti.exception.AlreadyExists;
 import com.almahir.iti.exception.ForbiddenOperationException;
 import com.almahir.iti.exception.ResourceNotFoundException;
 import com.almahir.iti.mapper.SheikhMapper;
 import com.almahir.iti.mapper.UserMapper;
 import com.almahir.iti.model.*;
+import com.almahir.iti.model.enums.PaymentStatus;
 import com.almahir.iti.model.enums.RoleName;
 import com.almahir.iti.model.enums.SheikhStatus;
 import com.almahir.iti.model.enums.CircleStatus;
 import com.almahir.iti.repository.*;
+import com.almahir.iti.repository.spec.PaymentTransactionSpecifications;
 import com.almahir.iti.service.AdminService;
 import com.almahir.iti.service.RefreshTokenService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.Map;
 import java.util.HashSet;
 import java.util.Locale;
@@ -37,6 +41,7 @@ public class AdminServiceImpl implements AdminService {
     private final SheikhMapper sheikhMapper;
     private final CircleRepository circleRepository;
     private final SubscriptionPackageRepository subscriptionPackageRepository;
+    private final PaymentTransactionRepository paymentTransactionRepository;
 
     @Override
     @Transactional
@@ -102,6 +107,43 @@ public class AdminServiceImpl implements AdminService {
 
         SubscriptionPackage savedPackage = subscriptionPackageRepository.save(subscriptionPackage);
         return toSubscriptionPackageResponse(savedPackage);
+    }
+
+    @Override
+    public PageResponse<PaymentTransactionAdminResponse> getPaymentTransactions(
+            PaymentStatus status, UUID userId, Instant from, Instant to, Pageable pageable
+    ) {
+        Specification<PaymentTransaction> spec =
+                PaymentTransactionSpecifications.filter(status, userId, from, to);
+
+        Page<PaymentTransactionAdminResponse> page = paymentTransactionRepository
+                .findAll(spec, pageable)
+                .map(this::toAdminResponse);
+
+        return PageResponse.from(page);
+    }
+
+    private PaymentTransactionAdminResponse toAdminResponse(PaymentTransaction tx) {
+        User user = tx.getUser();
+        SubscriptionPackage pkg = tx.getSubscriptionPackage();
+
+        return new PaymentTransactionAdminResponse(
+                tx.getId(),
+                user.getId(),
+                user.getFirstName() + " " + user.getLastName(),
+                user.getEmail(),
+                pkg.getCode(),
+                pkg.getName(),
+                tx.getMethod().name(),
+                tx.getStatus().name(),
+                tx.getAmountMinorUnits(),
+                tx.getCurrencyCode(),
+                tx.getPaymobIntentionId(),
+                tx.getPaymobTransactionId(),
+                tx.getFailureReasonCode(),
+                tx.getCreatedAt(),
+                tx.getUpdatedAt()
+        );
     }
 
     private SubscriptionPackageResponse toSubscriptionPackageResponse(SubscriptionPackage subscriptionPackage) {
