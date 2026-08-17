@@ -37,13 +37,14 @@ public class SecurityConfig {
                         )
                 )
                 .authorizeHttpRequests(auth -> auth
-
                         .requestMatchers("/api/auth/**", "/forgot-password/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/api/tafsir/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/sheikh/**").permitAll()
                         .requestMatchers("/api/payment/webhooks/**").permitAll()
                         .requestMatchers("/error").permitAll()
+                        .requestMatchers("/", "/index.html", "/static/**", "/assets/**", "/favicon.ico").permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
                         .anyRequest()
                         .authenticated()
