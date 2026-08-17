@@ -3,6 +3,7 @@ package com.almahir.iti.controller;
 import com.almahir.iti.dto.request.CreateSubscriptionPackageRequest;
 import com.almahir.iti.dto.response.*;
 import com.almahir.iti.model.enums.PaymentStatus;
+import com.almahir.iti.model.enums.SheikhStatus;
 import com.almahir.iti.service.AdminService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -106,5 +107,24 @@ public class AdminController {
                 "Payment transactions retrieved",
                 adminService.getPaymentTransactions(status, userId, from, to, pageable)
         ));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "List students", description = "Paginated list of all students with block status.")
+    @GetMapping("/students")
+    public ResponseEntity<ApiResponse<PageResponse<StudentAdminResponse>>> listStudents(
+            @PageableDefault(size = 20, sort = "user.firstName") Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Students retrieved", adminService.listStudents(pageable)));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "List sheikhs", description = "Paginated list of sheikhs, optionally filtered by status.")
+    @GetMapping("/sheikhs")
+    public ResponseEntity<ApiResponse<PageResponse<SheikhResponse>>> listSheikhs(
+            @RequestParam(required = false) SheikhStatus status,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Sheikhs retrieved", adminService.listSheikhs(status, pageable)));
     }
 }

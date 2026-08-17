@@ -24,4 +24,8 @@ public interface AdminService {
     PageResponse<PaymentTransactionAdminResponse> getPaymentTransactions(
             PaymentStatus status, UUID userId, Instant from, Instant to, Pageable pageable
     );
+
+    PageResponse<StudentAdminResponse> listStudents(Pageable pageable);
+
+    PageResponse<SheikhResponse> listSheikhs(SheikhStatus status, Pageable pageable);
 }
