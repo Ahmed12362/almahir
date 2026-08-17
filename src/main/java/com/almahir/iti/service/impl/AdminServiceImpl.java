@@ -42,6 +42,7 @@ public class AdminServiceImpl implements AdminService {
     private final CircleRepository circleRepository;
     private final SubscriptionPackageRepository subscriptionPackageRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
+    private final StudentRepository studentRepository;
 
     @Override
     @Transactional
@@ -121,6 +122,40 @@ public class AdminServiceImpl implements AdminService {
                 .map(this::toAdminResponse);
 
         return PageResponse.from(page);
+    }
+
+    @Override
+    public PageResponse<StudentAdminResponse> listStudents(Pageable pageable) {
+        return PageResponse.from(
+                studentRepository.findAll(pageable).map(this::toStudentAdminResponse)
+        );
+    }
+
+    @Override
+    public PageResponse<SheikhResponse> listSheikhs(SheikhStatus status, Pageable pageable) {
+        Page<Sheikh> page = (status == null)
+                ? sheikhRepository.findAll(pageable)
+                : sheikhRepository.findBySheikhStatus(status, pageable);
+
+        return PageResponse.from(page.map(this::toSheikhResponse));
+    }
+
+    private StudentAdminResponse toStudentAdminResponse(Student s) {
+        User u = s.getUser();
+        return new StudentAdminResponse(
+                u.getId(), u.getFirstName(), u.getLastName(), u.getUsername(),
+                u.getGender(), u.getEmail(), u.getPhoneNumber(),
+                u.getProfilePictureUrl(), u.isBlocked()
+        );
+    }
+
+    private SheikhResponse toSheikhResponse(Sheikh s) {
+        User u = s.getUser();
+        return new SheikhResponse(
+                u.getId(), u.getUsername(), u.getFirstName(), u.getLastName(),
+                u.getGender(), u.getEmail(), u.getPhoneNumber(),
+                u.getProfilePictureUrl(), s.getSheikhStatus(), s.getRate()
+        );
     }
 
     private PaymentTransactionAdminResponse toAdminResponse(PaymentTransaction tx) {
