@@ -1,10 +1,8 @@
 package com.almahir.iti.controller;
 
 import com.almahir.iti.dto.request.CreateSubscriptionPackageRequest;
-import com.almahir.iti.dto.response.ApiResponse;
-import com.almahir.iti.dto.response.SheikhResponse;
-import com.almahir.iti.dto.response.SubscriptionPackageResponse;
-import com.almahir.iti.dto.response.UserResponse;
+import com.almahir.iti.dto.response.*;
+import com.almahir.iti.model.enums.PaymentStatus;
 import com.almahir.iti.service.AdminService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -14,11 +12,16 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @RestController
@@ -79,6 +82,29 @@ public class AdminController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(
                 "Subscription package created",
                 adminService.createSubscriptionPackage(request)
+        ));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(
+            summary = "List payment transactions",
+            description = """
+                    Returns a paginated list of all payment transactions with the paying user
+                    and the purchased package. Supports optional filtering by status,
+                    userId, and a createdAt date range.
+                    """
+    )
+    @GetMapping("/payments")
+    public ResponseEntity<ApiResponse<PageResponse<PaymentTransactionAdminResponse>>> getPaymentTransactions(
+            @RequestParam(required = false) PaymentStatus status,
+            @RequestParam(required = false) UUID userId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Payment transactions retrieved",
+                adminService.getPaymentTransactions(status, userId, from, to, pageable)
         ));
     }
 }
