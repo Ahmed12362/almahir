@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Al-Mahir - Admin Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            500: '#10b981',
+                            600: '#059669',
+                            800: '#065f46',
+                            900: '#064e3b',
+                            dark: '#0b1320'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- React & Babel CDNs -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+<div id="root"></div>
+
+<script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const BASE_URL = "";
+
+    function App() {
+        const [token, setToken] = useState(localStorage.getItem('adminToken'));
+        const [activeTab, setActiveTab] = useState('students');
+        const [loading, setLoading] = useState(false);
+
+        // Data States
+        const [students, setStudents] = useState([]);
+        const [sheikhs, setSheikhs] = useState([]);
+        const [payments, setPayments] = useState([]);
+        const [sheikhFilter, setSheikhFilter] = useState('');
+
+        // Stats
+        const [stats, setStats] = useState({ totalRevenue: 0, pendingSheikhs: 0, totalStudents: 0 });
+
+        // Form States
+        const [loginEmail, setLoginEmail] = useState('');
+        const [loginPassword, setLoginPassword] = useState('');
+        const [loginError, setLoginError] = useState('');
+
+        // Package Modal State
+        const [showPackageModal, setShowPackageModal] = useState(false);
+        const [pkgForm, setPkgForm] = useState({
+            code: '', name: '', description: '', priceMinorUnits: 10000,
+            currencyCode: 'EGP', meetingMinutesAllowed: 120, durationDays: 30, active: true
+        });
+
+        // Fetch Helper
+        const apiCall = async (endpoint, method = 'GET', body = null) => {
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
+            const res = await fetch(`${BASE_URL}${endpoint}`, {
+                method,
+                headers,
+                body: body ? JSON.stringify(body) : null
+            });
+
+            if (res.status === 401 || res.status === 403) {
+                handleLogout();
+                throw new Error("Invalid session. Please log in again.");
+            }
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || 'Something went wrong');
+            return data;
+        };
+
+        // Login Handler
+        const handleLogin = async (e) => {
+            e.preventDefault();
+            setLoginError('');
+            setLoading(true);
+            try {
+                const res = await apiCall('/api/auth/admin/login', 'POST', {
+                    email: loginEmail,
+                    password: loginPassword
+                });
+                const jwt = res.data.accessToken;
+                localStorage.setItem('adminToken', jwt);
+                setToken(jwt);
+            } catch (err) {
+                setLoginError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        const handleLogout = () => {
+            localStorage.removeItem('adminToken');
+            setToken(null);
+        };
+
+        // Load Dashboard Data
+        const loadData = async () => {
+            if (!token) return;
+            setLoading(true);
+            try {
+                const [studentsRes, sheikhsRes, paymentsRes] = await Promise.all([
+                    apiCall('/api/admin/students'),
+                    apiCall('/api/admin/sheikhs' + (sheikhFilter ? `?status=${sheikhFilter}` : '')),
+                    apiCall('/api/admin/payments')
+                ]);
+
+                const studentsList = studentsRes.data?.content || [];
+                const sheikhsList = sheikhsRes.data?.content || [];
+                const paymentsList = paymentsRes.data?.content || [];
+
+                setStudents(studentsList);
+                setSheikhs(sheikhsList);
+                setPayments(paymentsList);
+
+                // Compute KPI Stats
+                const rev = paymentsList
+                    .filter(p => p.status === 'SUCCESS')
+                    .reduce((acc, curr) => acc + (curr.amountMinorUnits || 0), 0) / 100;
+
+                const pending = sheikhsList.filter(s => s.sheikhStatus === 'PENDING').length;
+
+                setStats({
+                    totalRevenue: rev,
+                    pendingSheikhs: pending,
+                    totalStudents: studentsList.length
+                });
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        useEffect(() => {
+            if (token) loadData();
+        }, [token, sheikhFilter]);
+
+        // Actions
+        const toggleUserBlock = async (userId, isBlocked) => {
+            const endpoint = `/api/admin/users/${userId}/${isBlocked ? 'unblock' : 'block'}`;
+            await apiCall(endpoint, 'POST');
+            loadData();
+        };
+
+        const handleSheikhAction = async (sheikhId, action) => {
+            await apiCall(`/api/admin/sheikhs/${sheikhId}/${action}`, 'POST');
+            loadData();
+        };
+
+        const handleCreatePackage = async (e) => {
+            e.preventDefault();
+            try {
+                await apiCall('/api/admin/subscription-packages', 'POST', pkgForm);
+                setShowPackageModal(false);
+                alert("Package created successfully!");
+            } catch (err) {
+                alert(err.message);
+            }
+        };
+
+        // Render Login View
+        if (!token) {
+            return (
+                <div className="min-h-screen flex items-center justify-center p-4">
+                    <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 max-w-md w-full shadow-2xl">
+                        <div className="text-center mb-8">
+                            <div className="w-16 h-16 bg-brand-600/20 text-brand-500 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-brand-500/30">
+                                <span className="text-3xl font-bold">A</span>
+                            </div>
+                            <h1 className="text-2xl font-bold text-white">Admin Dashboard</h1>
+                            <p className="text-slate-400 text-sm mt-1">Sign in to manage Al-Mahir platform</p>
+                        </div>
+
+                        {loginError && (
+                            <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3 rounded-xl mb-4 text-sm text-center">
+                                {loginError}
+                            </div>
+                        )}
+
+                        <form onSubmit={handleLogin} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
+                                <input
+                                    type="email" required
+                                    value={loginEmail} onChange={e => setLoginEmail(e.target.value)}
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-brand-500 transition"
+                                    placeholder="admin@almahir.com"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-300 mb-1">Password</label>
+                                <input
+                                    type="password" required
+                                    value={loginPassword} onChange={e => setLoginPassword(e.target.value)}
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-brand-500 transition"
+                                />
+                            </div>
+                            <button
+                                type="submit" disabled={loading}
+                                className="w-full bg-brand-600 hover:bg-brand-500 text-white font-bold p-3 rounded-xl transition shadow-lg shadow-brand-600/20"
+                            >
+                                {loading ? 'Authenticating...' : 'Sign In'}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+
+        // Render Dashboard View
+        return (
+            <div className="min-h-screen flex flex-col">
+                {/* Navbar */}
+                <header className="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center font-bold text-lg">M</div>
+                        <span className="font-bold text-xl text-white">Al-Mahir Admin</span>
+                    </div>
+                    <button onClick={handleLogout} className="bg-slate-700 hover:bg-red-600/20 hover:text-red-400 text-slate-300 text-sm px-4 py-2 rounded-xl transition">
+                        Log Out
+                    </button>
+                </header>
+
+                <div className="p-6 max-w-7xl mx-auto w-full flex-1 space-y-6">
+                    {/* KPI Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-slate-800/80 border border-slate-700 p-5 rounded-2xl">
+                            <span className="text-xs text-slate-400 block mb-1">Total Revenue</span>
+                            <span className="text-2xl font-bold text-brand-500">{stats.totalRevenue.toLocaleString()} EGP</span>
+                        </div>
+                        <div className="bg-slate-800/80 border border-slate-700 p-5 rounded-2xl">
+                            <span className="text-xs text-slate-400 block mb-1">Pending Sheikh Requests</span>
+                            <span className="text-2xl font-bold text-amber-400">{stats.pendingSheikhs}</span>
+                        </div>
+                        <div className="bg-slate-800/80 border border-slate-700 p-5 rounded-2xl">
+                            <span className="text-xs text-slate-400 block mb-1">Total Students</span>
+                            <span className="text-2xl font-bold text-blue-400">{stats.totalStudents}</span>
+                        </div>
+                    </div>
+
+                    {/* Navigation Tabs */}
+                    <div className="flex border-b border-slate-700 gap-2">
+                        {['students', 'sheikhs', 'payments'].map(tab => (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveTab(tab)}
+                                className={`px-5 py-3 font-semibold text-sm rounded-t-xl transition ${activeTab === tab ? 'bg-slate-800 border-t-2 border-brand-500 text-brand-500' : 'text-slate-400 hover:text-white'}`}
+                            >
+                                {tab === 'students' && 'Students & Users'}
+                                {tab === 'sheikhs' && 'Sheikhs & Reciters'}
+                                {tab === 'payments' && 'Payments & Subscriptions'}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* TAB 1: Students */}
+                    {activeTab === 'students' && (
+                        <div className="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-slate-900/50 text-slate-400">
+                                <tr>
+                                    <th className="p-4">Name</th>
+                                    <th className="p-4">Username</th>
+                                    <th className="p-4">Email</th>
+                                    <th className="p-4">Phone</th>
+                                    <th className="p-4">Status</th>
+                                    <th className="p-4">Action</th>
+                                </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-700/50">
+                                {students.map(s => (
+                                    <tr key={s.id} className="hover:bg-slate-700/20">
+                                        <td className="p-4 font-medium">{s.firstName} {s.lastName}</td>
+                                        <td className="p-4 text-slate-400">@{s.username}</td>
+                                        <td className="p-4 text-slate-400">{s.email}</td>
+                                        <td className="p-4 text-slate-400">{s.phoneNumber || '-'}</td>
+                                        <td className="p-4">
+                                        <span className={`px-2 py-1 rounded-md text-xs font-bold ${s.blocked ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
+                                            {s.blocked ? 'Blocked' : 'Active'}
+                                        </span>
+                                        </td>
+                                        <td className="p-4">
+                                            <button
+                                                onClick={() => toggleUserBlock(s.id, s.blocked)}
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${s.blocked ? 'bg-brand-600 hover:bg-brand-500 text-white' : 'bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white'}`}
+                                            >
+                                                {s.blocked ? 'Unblock' : 'Block'}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {/* TAB 2: Sheikhs */}
+                    {activeTab === 'sheikhs' && (
+                        <div className="space-y-4">
+                            <div className="flex justify-end gap-2">
+                                <select
+                                    value={sheikhFilter}
+                                    onChange={e => setSheikhFilter(e.target.value)}
+                                    className="bg-slate-800 border border-slate-700 rounded-xl p-2 text-sm text-slate-200"
+                                >
+                                    <option value="">All Statuses</option>
+                                    <option value="PENDING">Pending (PENDING)</option>
+                                    <option value="AVAILABLE">Approved (AVAILABLE)</option>
+                                    <option value="DECLINED">Declined (DECLINED)</option>
+                                </select>
+                            </div>
+                            <div className="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-slate-900/50 text-slate-400">
+                                    <tr>
+                                        <th className="p-4">Sheikh</th>
+                                        <th className="p-4">Email</th>
+                                        <th className="p-4">Rating</th>
+                                        <th className="p-4">Status</th>
+                                        <th className="p-4">Actions</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-700/50">
+                                    {sheikhs.map(sk => (
+                                        <tr key={sk.id} className="hover:bg-slate-700/20">
+                                            <td className="p-4 font-medium">{sk.firstName} {sk.lastName}</td>
+                                            <td className="p-4 text-slate-400">{sk.email}</td>
+                                            <td className="p-4 text-amber-400">★ {sk.rate || 0}</td>
+                                            <td className="p-4">
+                                            <span className="px-2 py-1 rounded-md text-xs font-bold bg-slate-700 text-slate-300">
+                                                {sk.sheikhStatus}
+                                            </span>
+                                            </td>
+                                            <td className="p-4 flex gap-2">
+                                                <button
+                                                    onClick={() => handleSheikhAction(sk.id, 'approve')}
+                                                    className="bg-brand-600 hover:bg-brand-500 text-white px-3 py-1 rounded-lg text-xs font-bold"
+                                                >
+                                                    Approve
+                                                </button>
+                                                <button
+                                                    onClick={() => handleSheikhAction(sk.id, 'decline')}
+                                                    className="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white px-3 py-1 rounded-lg text-xs font-bold"
+                                                >
+                                                    Decline
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* TAB 3: Payments */}
+                    {activeTab === 'payments' && (
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-lg font-bold">Transaction History</h3>
+                                <button
+                                    onClick={() => setShowPackageModal(true)}
+                                    className="bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold px-4 py-2 rounded-xl"
+                                >
+                                    + Create Subscription Package
+                                </button>
+                            </div>
+                            <div className="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-slate-900/50 text-slate-400">
+                                    <tr>
+                                        <th className="p-4">User</th>
+                                        <th className="p-4">Package</th>
+                                        <th className="p-4">Amount</th>
+                                        <th className="p-4">Status</th>
+                                        <th className="p-4">Date</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-700/50">
+                                    {payments.map(p => (
+                                        <tr key={p.transactionId} className="hover:bg-slate-700/20">
+                                            <td className="p-4">
+                                                <div className="font-medium">{p.userFullName}</div>
+                                                <div className="text-xs text-slate-500">{p.userEmail}</div>
+                                            </td>
+                                            <td className="p-4 font-mono text-brand-400">{p.packageName} ({p.packageCode})</td>
+                                            <td className="p-4 font-bold">{p.amountMinorUnits / 100} {p.currencyCode}</td>
+                                            <td className="p-4">
+                                            <span className={`px-2 py-1 rounded-md text-xs font-bold ${p.status === 'SUCCESS' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                                {p.status}
+                                            </span>
+                                            </td>
+                                            <td className="p-4 text-xs text-slate-400">{new Date(p.createdAt).toLocaleString()}</td>
+                                        </tr>
+                                    ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Create Package Modal */}
+                {showPackageModal && (
+                    <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+                        <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-4">
+                            <h3 className="text-lg font-bold">Create New Package</h3>
+                            <form onSubmit={handleCreatePackage} className="space-y-3 text-xs">
+                                <div>
+                                    <label className="block mb-1">Package Code</label>
+                                    <input required value={pkgForm.code} onChange={e=>setPkgForm({...pkgForm, code: e.target.value})} className="w-full bg-slate-900 p-2.5 rounded-lg border border-slate-700" placeholder="pkg-gold" />
+                                </div>
+                                <div>
+                                    <label className="block mb-1">Package Name</label>
+                                    <input required value={pkgForm.name} onChange={e=>setPkgForm({...pkgForm, name: e.target.value})} className="w-full bg-slate-900 p-2.5 rounded-lg border border-slate-700" placeholder="Gold Package" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="block mb-1">Price (Minor Units - Cents/Piastres)</label>
+                                        <input type="number" required value={pkgForm.priceMinorUnits} onChange={e=>setPkgForm({...pkgForm, priceMinorUnits: +e.target.value})} className="w-full bg-slate-900 p-2.5 rounded-lg border border-slate-700" />
+                                    </div>
+                                    <div>
+                                        <label className="block mb-1">Session Minutes Allowed</label>
+                                        <input type="number" required value={pkgForm.meetingMinutesAllowed} onChange={e=>setPkgForm({...pkgForm, meetingMinutesAllowed: +e.target.value})} className="w-full bg-slate-900 p-2.5 rounded-lg border border-slate-700" />
+                                    </div>
+                                </div>
+                                <div className="flex justify-end gap-2 pt-4">
+                                    <button type="button" onClick={()=>setShowPackageModal(false)} className="px-4 py-2 rounded-lg bg-slate-700">Cancel</button>
+                                    <button type="submit" className="px-4 py-2 rounded-lg bg-brand-600 font-bold">Save Package</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
