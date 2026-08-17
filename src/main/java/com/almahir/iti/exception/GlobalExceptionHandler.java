@@ -135,6 +135,12 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(InsufficientMinutesException.class)
+    public ResponseEntity<ErrorResponse> handleInsufficientMinutes(InsufficientMinutesException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(false, ex.getMessage(), Map.of("code", ex.getCode()), Instant.now()));
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleResourceNotFound(ResourceNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)

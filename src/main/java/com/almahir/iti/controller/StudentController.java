@@ -3,6 +3,9 @@ package com.almahir.iti.controller;
 import com.almahir.iti.dto.response.ApiResponse;
 import com.almahir.iti.dto.response.PageResponse;
 import com.almahir.iti.dto.response.StudentResponse;
+import com.almahir.iti.dto.response.StudentSubscriptionMinutesResponse;
+import com.almahir.iti.model.AuthUser;
+import com.almahir.iti.model.User;
 import com.almahir.iti.service.StudentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -15,6 +18,8 @@ import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -170,6 +175,16 @@ public class StudentController {
         return ResponseEntity.ok(ApiResponse.success(
                 "Students retrieved successfully",
                 studentService.searchStudentsByUsername(username, pageable)
+        ));
+    }
+
+    @GetMapping("/me/subscription-minutes")
+    public ResponseEntity<ApiResponse<StudentSubscriptionMinutesResponse>> getSubscriptionMinutes(
+            @AuthenticationPrincipal AuthUser authUser
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Subscription details retrieved successfully",
+                studentService.getSubscriptionMinutes(authUser.getUser())
         ));
     }
 }

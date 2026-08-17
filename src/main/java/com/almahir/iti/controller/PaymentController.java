@@ -3,6 +3,7 @@ package com.almahir.iti.controller;
 import com.almahir.iti.dto.request.CreateIntentionRequest;
 import com.almahir.iti.dto.response.CreateIntentionResponse;
 import com.almahir.iti.dto.response.PaymentStatusResponse;
+import com.almahir.iti.dto.response.SubscriptionPackageMeetingMinutesAllowedResponse;
 import com.almahir.iti.model.AuthUser;
 import com.almahir.iti.service.PaymentService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,6 +18,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -127,5 +129,11 @@ public class PaymentController {
     ) {
         paymentService.handlePaymobWebhook(payload, hmac);
         return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "List Available Subscription Packages", description = "Public list of all active, purchasable packages.")
+    @GetMapping("/packages")
+    public ResponseEntity<List<SubscriptionPackageMeetingMinutesAllowedResponse>> listPackages() {
+        return ResponseEntity.ok(paymentService.listActivePackages());
     }
 }

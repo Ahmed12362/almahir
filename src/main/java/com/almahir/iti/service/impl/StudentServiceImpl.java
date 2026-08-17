@@ -2,9 +2,14 @@ package com.almahir.iti.service.impl;
 
 import com.almahir.iti.dto.response.PageResponse;
 import com.almahir.iti.dto.response.StudentResponse;
+import com.almahir.iti.dto.response.StudentSubscriptionMinutesResponse;
 import com.almahir.iti.exception.ResourceNotFoundException;
 import com.almahir.iti.mapper.StudentMapper;
+import com.almahir.iti.model.SubscriptionPackage;
+import com.almahir.iti.model.User;
+import com.almahir.iti.model.UserSubscription;
 import com.almahir.iti.repository.StudentRepository;
+import com.almahir.iti.repository.UserSubscriptionRepository;
 import com.almahir.iti.service.StudentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -21,6 +26,7 @@ public class StudentServiceImpl implements StudentService {
 
     private final StudentRepository studentRepository;
     private final StudentMapper studentMapper;
+    private final UserSubscriptionRepository userSubscriptionRepository;
 
     @Override
     public PageResponse<StudentResponse> getAllStudents(Pageable pageable) {
@@ -57,5 +63,23 @@ public class StudentServiceImpl implements StudentService {
                 .findByUserUsernameContainingIgnoreCase(username, pageable)
                 .map(studentMapper::toResponse);
         return PageResponse.from(studentPage);
+    }
+
+    @Override
+    public StudentSubscriptionMinutesResponse getSubscriptionMinutes(User currentUser) {
+        UserSubscription subscription = userSubscriptionRepository.findByUserId(currentUser.getId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "No active subscription found for this student."
+                ));
+
+        SubscriptionPackage subscriptionPackage = subscription.getSubscriptionPackage();
+
+        return new StudentSubscriptionMinutesResponse(
+                subscriptionPackage.getName(),
+                subscriptionPackage.getMeetingMinutesAllowed(),
+                subscription.getMinutesRemaining(),
+                subscription.getStartedAt(),
+                subscription.getExpiresAt()
+        );
     }
 }

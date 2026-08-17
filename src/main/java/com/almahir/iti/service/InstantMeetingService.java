@@ -36,4 +36,6 @@ public interface InstantMeetingService {
     PageResponse<StudentMeetingHistoryResponse> getStudentMeetingHistory(User currentUser, List<MeetingRequestStatus> statuses, Pageable pageable);
 
     PageResponse<SheikhMeetingHistoryResponse> getSheikhMeetingHistory(User currentUser, List<MeetingRequestStatus> statuses, Pageable pageable);
+
+    void expireActiveMeetings();
 }

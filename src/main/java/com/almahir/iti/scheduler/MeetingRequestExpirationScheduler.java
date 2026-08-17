@@ -15,5 +15,6 @@ public class MeetingRequestExpirationScheduler {
     @Scheduled(fixedDelayString = "${meeting.request.expiration.check-delay}")
     public void expirePendingRequests() {
         instantMeetingService.expirePendingRequests();
+        instantMeetingService.expireActiveMeetings();
     }
 }

@@ -4,9 +4,7 @@ import com.almahir.iti.client.PaymobClient;
 import com.almahir.iti.client.PaymobHmacVerifier;
 import com.almahir.iti.config.PaymobProperties;
 import com.almahir.iti.dto.request.CreateIntentionRequest;
-import com.almahir.iti.dto.response.CreateIntentionResponse;
-import com.almahir.iti.dto.response.PaymentStatusResponse;
-import com.almahir.iti.dto.response.PaymobIntentionResponse;
+import com.almahir.iti.dto.response.*;
 import com.almahir.iti.exception.*;
 import com.almahir.iti.model.*;
 import com.almahir.iti.model.enums.PaymentMethod;
@@ -22,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -140,6 +139,23 @@ public class PaymentServiceImpl implements PaymentService {
         );
     }
 
+    @Transactional(readOnly = true)
+    @Override
+    public List<SubscriptionPackageMeetingMinutesAllowedResponse> listActivePackages() {
+        return packageRepository.findByActiveTrue().stream()
+                .map(pkg -> new SubscriptionPackageMeetingMinutesAllowedResponse(
+                        pkg.getCode(),
+                        pkg.getName(),
+                        pkg.getDescription(),
+                        pkg.getPriceMinorUnits(),
+                        pkg.getCurrencyCode(),
+                        pkg.getMeetingMinutesAllowed(),
+                        pkg.getDurationDays(),
+                        pkg.getFeatures()
+                ))
+                .toList();
+    }
+
     @Override
     @Transactional
     public void handlePaymobWebhook(Map<String, Object> payload, String hmac) {
@@ -202,6 +218,7 @@ public class PaymentServiceImpl implements PaymentService {
         sub.setSubscriptionPackage(pkg);
         sub.setStartedAt(now);
         sub.setExpiresAt(now.plus(Duration.ofDays(pkg.getDurationDays())));
+        sub.setMinutesRemaining(pkg.getMeetingMinutesAllowed());
 
         userSubscriptionRepository.save(sub);
         log.info("Activated subscription for user {} with package {}", user.getId(), pkg.getCode());
