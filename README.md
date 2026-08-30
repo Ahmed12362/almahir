@@ -70,11 +70,11 @@ Al-Mahir was built by five collaborating teams, each owning a layer of the produ
 
 | Team | Responsibility |
 |---|---|
-| ⚙️ **Backend** | REST APIs, business logic, integrations, real-time layer *(this repo)* |
-| 📱 **Android** | Native Android client |
-| 🍎 **iOS** | Native iOS client |
-| 🤖 **AI** | Recitation analysis engine |
-| 🧪 **Testing** | QA & test coverage |
+| **Backend** | REST APIs, business logic, integrations, real-time layer *(this repo)* |
+| **Android** | Native Android client |
+| **iOS** | Native iOS client |
+| **AI** | Recitation analysis engine |
+| **Testing** | QA & test coverage |
 
 The backend exposes REST APIs and a WebSocket/STOMP layer that all client apps (Android/iOS) consume, and integrates with external services for payments, media hosting, and email.
 
@@ -392,6 +392,153 @@ Once the app is running, interactive API docs (Swagger UI) are available at:
 http://localhost:8080/swagger-ui/index.html
 ```
 
+Below is the full REST endpoint reference, grouped by controller.
+
+<details>
+<summary><strong>Auth</strong> — <code>/api/auth</code></summary>
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| POST | `/api/auth/user/register`, `/api/auth/sheikh/register` | Register a Student or Sheikh (multipart: JSON payload + optional profile picture) | Public |
+| POST | `/api/auth/user/login`, `/api/auth/sheikh/login`, `/api/auth/admin/login` | Login and receive access + refresh tokens | Public |
+| POST | `/api/auth/user/google`, `/api/auth/sheikh/google` | Login/sign up via Google OAuth2 ID token | Public |
+| POST | `/api/auth/{user\|sheikh\|admin}/refresh` | Exchange a refresh token for a new access token | Public |
+| POST | `/api/auth/logout` | Revoke a refresh token | Public |
+
+</details>
+
+<details>
+<summary><strong>Forgot Password</strong> — <code>/forgot-password</code></summary>
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| POST | `/forgot-password/verify-email/{email}` | Verify the email exists and send an OTP | Public |
+| POST | `/forgot-password/verify-otp/{otp}/{email}` | Validate the OTP for the given email | Public |
+| POST | `/forgot-password/change-password/{email}` | Reset the password after OTP verification | Public |
+
+</details>
+
+<details>
+<summary><strong>Students</strong> — <code>/api/students</code></summary>
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| GET | `/api/students` | Paginated list of all students | Authenticated |
+| GET | `/api/students/{id}` | Get a student by ID | Authenticated |
+| GET | `/api/students/email` | Get a student by email | Authenticated |
+| GET | `/api/students/search` | Search students by first/last name | Authenticated |
+| GET | `/api/students/search/username` | Search students by username | Authenticated |
+| GET | `/api/students/me/subscription-minutes` | Current student's remaining subscription minutes | Authenticated |
+
+</details>
+
+<details>
+<summary><strong>Sheikhs</strong> — <code>/api/sheikh</code></summary>
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| GET | `/api/sheikh/search` | Search sheikhs by name | Public |
+| GET | `/api/sheikh` | Get all sheikhs | Public |
+| GET | `/api/sheikh/email/{email}` | Get a sheikh by email | Public |
+| GET | `/api/sheikh/username/{username}` | Get a sheikh by username | Public |
+| GET | `/api/sheikh/{id}` | Get a sheikh by ID | Public |
+| PUT | `/api/sheikh/{id}` | Update a sheikh's profile (JSON or multipart with picture) | Authenticated |
+| POST | `/api/sheikh/{sheikhId}/reviews` | Add a review/rating for a sheikh | Student |
+| GET | `/api/sheikh/{sheikhId}/reviews` | Get all reviews for a sheikh | Authenticated |
+
+</details>
+
+<details>
+<summary><strong>Circles</strong> — <code>/api/circles</code></summary>
+
+Real-time group study sessions. Requires a STOMP connection at `/ws` for join/start/lifecycle events (see the controller's Swagger description for topic details).
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| POST | `/api/circles` | Create a circle (PUBLIC: Sheikh only, PRIVATE: any user) | Authenticated |
+| GET | `/api/circles` | List public circles, optionally filtered by status | Authenticated |
+| GET | `/api/circles/{circleId}` | Get circle details | Authenticated |
+| PATCH | `/api/circles/{circleId}` | Update circle details (owner only) | Authenticated |
+| DELETE | `/api/circles/{circleId}` | Cancel a scheduled circle (owner only) | Authenticated |
+| POST | `/api/circles/{circleId}/start` | Start a scheduled circle (owner only) | Authenticated |
+| POST | `/api/circles/{circleId}/end` | End an ongoing circle (owner only) | Authenticated |
+| POST | `/api/circles/{circleId}/join` | Request to join a circle | Authenticated |
+| POST | `/api/circles/join/{token}` | Join a private circle via invite link | Authenticated |
+| GET | `/api/circles/{circleId}/pending-requests` | List pending join requests (owner only) | Authenticated |
+| POST | `/api/circles/{circleId}/approve/{userId}` | Approve a join request (owner only) | Authenticated |
+| POST | `/api/circles/{circleId}/reject/{userId}` | Reject a join request (owner only) | Authenticated |
+| POST | `/api/circles/{circleId}/leave` | Leave a circle | Authenticated |
+| DELETE | `/api/circles/{circleId}/members/{userId}` | Remove a member (owner only) | Authenticated |
+| GET | `/api/circles/{circleId}/members` | List active members | Authenticated |
+| GET | `/api/circles/{circleId}/token` | Get an Agora audio/video token (active members only, circle must be ongoing) | Authenticated |
+| GET | `/api/circles/mine` | List circles the current user is a member of | Authenticated |
+| GET | `/api/circles/mine/private` | List the current user's private circles (as host) | Authenticated |
+| GET | `/api/circles/history` | Current user's circle membership history | Authenticated |
+
+</details>
+
+<details>
+<summary><strong>Instant Meetings</strong> — <code>/api/instant-meetings</code></summary>
+
+Real-time 1-to-1 meeting requests between Students and Sheikhs. Requires a STOMP connection at `/ws` before creating or accepting a request.
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| PUT | `/api/instant-meetings/sheikh/availability` | Update the current sheikh's availability status | Sheikh |
+| GET | `/api/instant-meetings/sheikh/{sheikhId}/availability` | Get a sheikh's current availability | Authenticated |
+| POST | `/api/instant-meetings/sheikh/{sheikhId}/request` | Send an instant meeting request to an available sheikh | Student |
+| POST | `/api/instant-meetings/{requestId}/accept` | Accept a pending request (returns an Agora token) | Sheikh |
+| POST | `/api/instant-meetings/{requestId}/decline` | Decline a pending request | Sheikh |
+| POST | `/api/instant-meetings/{requestId}/cancel` | Cancel a pending request | Student |
+| GET | `/api/instant-meetings/{requestId}/token` | Refresh the Agora token for an accepted meeting | Authenticated |
+| POST | `/api/instant-meetings/{requestId}/end` | End an active meeting | Authenticated |
+| GET | `/api/instant-meetings/sheikh/pending` | List pending requests sent to the current sheikh | Sheikh |
+| GET | `/api/instant-meetings/student/history` | Current student's meeting history | Student |
+| GET | `/api/instant-meetings/sheikh/history` | Current sheikh's meeting history | Sheikh |
+
+</details>
+
+<details>
+<summary><strong>Payments</strong> — <code>/api/payment</code></summary>
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| POST | `/api/payment/intentions` | Create a Paymob payment intention for a subscription package | Authenticated |
+| GET | `/api/payment/intentions/{id}/status` | Get the status of a payment intention | Authenticated |
+| POST | `/api/payment/webhooks/paymob` | Paymob webhook — receives and verifies payment results | Public (HMAC-verified) |
+| GET | `/api/payment/packages` | List active, purchasable subscription packages | Public |
+
+</details>
+
+<details>
+<summary><strong>Tafsir</strong> — <code>/api/tafsir</code></summary>
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| GET | `/api/tafsir` | Get the tafsir for a given surah/ayah | Public |
+| GET | `/api/tafsir/available` | List fully compiled tafsir editions available for download | Public |
+| POST | `/api/tafsir/build` | Trigger a full tafsir build for an edition (background job) | Admin secret header |
+| GET | `/api/tafsir/build/status` | Check the status of a tafsir build | Admin secret header |
+| POST | `/api/tafsir/build/sync` | Sync tafsir metadata from Cloudinary | Admin secret header |
+
+</details>
+
+<details>
+<summary><strong>Admin</strong> — <code>/api/admin</code></summary>
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| POST | `/api/admin/sheikhs/{sheikhId}/approve` | Approve a pending sheikh | Admin |
+| POST | `/api/admin/sheikhs/{sheikhId}/decline` | Decline a sheikh and block the linked account | Admin |
+| POST | `/api/admin/users/{userId}/block` | Block a user and revoke their sessions | Admin |
+| POST | `/api/admin/users/{userId}/unblock` | Restore access for a blocked user | Admin |
+| POST | `/api/admin/subscription-packages` | Create a new subscription package | Admin |
+| GET | `/api/admin/payments` | Paginated list of payment transactions (filterable by status/user/date range) | Admin |
+| GET | `/api/admin/students` | Paginated list of all students | Admin |
+| GET | `/api/admin/sheikhs` | Paginated list of sheikhs (filterable by status) | Admin |
+
+</details>
+
 ---
 
 ## Testing
@@ -407,7 +554,7 @@ Unit tests are written with JUnit and cover core service logic (e.g. Sheikh and 
 ## Team
 
 **Backend Team**
-- [Ahmed](https://github.com/Ahmed12362)
+- [Ahmed Mohamed](https://github.com/Ahmed12362)
 - [Abdullah](https://github.com/AbdallahElagamy)
 - [Ahmed Ramadan](https://github.com/Ahmed-Ramadan-Ahmed)
 
